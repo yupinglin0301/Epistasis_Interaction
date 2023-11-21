@@ -1,0 +1,5 @@
+experiment_dir: "00_Preprocess_Data"
+weights_data_path: "data/models_all/"
+genotype_data_path: "data/dosage/"
+sample_data: "data/samples.txt"
+reference_data: "data/snp151_GRCh37.txt"

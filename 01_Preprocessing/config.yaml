@@ -1,0 +1,5 @@
+experiment_dir: "01_Preprocessing"
+dataset:
+   data_dir: "/exeh_4/yuping/Epistasis_Interaction/00_Preprocess_Data/results"
+   phentoype_dir: "/mnt/data/share/yuping/data/phenotype_info.csv"
+   env_dir: "/mnt/data/share/yuping/data/env_info.csv"
