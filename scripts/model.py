@@ -188,5 +188,3 @@ class IterativeRFRegression(GWAS_Model):
 
         with open(model_path, "rb") as model_file:
             return pickle.load(model_file)
-        
-     
