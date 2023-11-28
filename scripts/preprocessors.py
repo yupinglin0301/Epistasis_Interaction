@@ -38,8 +38,6 @@ class CategoricalImputer_Education(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         self.imputer_dict = {}
-        X['MotherEducation'].replace("#NULL!", pd.NA, inplace=True)
-        X['FatherEducation'].replace("#NULL!", pd.NA, inplace=True)
         for feature in self.variables:
             self.imputer_dict[feature] = X[feature].mode()[0]
         return self
