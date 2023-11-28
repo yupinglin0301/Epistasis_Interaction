@@ -68,7 +68,7 @@ class OOB_ParamGridSearch:
 
         if self.refit:
             # Final fit with best hyperparameters
-            self.cv_model = deepcopy(self.estimator)(rseed=1, **self.best_param_)
+            self.cv_model = deepcopy(self.estimator)(rseed=self.seed, **self.best_param_)
             self.cv_model.fit(X_train, y_train, feature_weight=None)
             self.cv_model.save_model("/exeh_4/yuping/123.pkl")
 
