@@ -1,8 +1,39 @@
-# Impute gene expression
+# Data Preprocessing and Impute gene expression
 
 In this module, we aim to impute gene expression for different tissue using gtex version 7 for reference.
+- Regress out potential genetic corrleation structure. (Step 0)
+- Impute gene expression for different tissue using gtex version 7 for reference. (Step 1)
 
 ## Scripts
+### Step 0: Regress out potential genetic corrleation structure
+The script is designed to utilize the following equation in order to construct Genomic Best Linear Unbiased Prediction (GBLUP), taking into consideration the influence of genetic correlation structure and subtracting the genetic relationship structure from the phenotype.
+
+$\left[\begin{array}{l}\hat{\mu} \\ \hat{g}\end{array}\right]=\left[\begin{array}{cc}1_n^{\prime} 1_n & \mathbf{1}_n^{\prime} Z \\ Z^{\prime} 1_n & Z^{\prime} Z+G^{-1} \frac{\sigma_e^2}{\sigma_g^2}\end{array}\right]^{-1}\left[\begin{array}{l}1_n^{\prime} y \\ Z^{\prime} y\end{array}\right]$
+
+--------------------------
+The construction of the Genetic Relationship Matrix (GRM) was based on the following description:
+
+W is a matrix for standardized genotype matrix, where its element for i-th SNP of j-th individual wij=(xij−2pi)/2pi(1−pi) with xij being the genotype value coded as the number of copies of the reference alleles {0, 1, 2}; then A = WW'/m (genetic relationship matrix (GRM) between individuals)
+
+```
+Usage:
+
+    python run_impute_gene_expression.py \
+      --data_config  \
+      --data_dir  \
+      --work_dir  \
+      --weight_tissue  \
+      --weight_end_prefix  \
+      --weight_prefix  \
+      --dosage_prefix  \
+      --dosage_end_prefix  
+
+Output:
+gene expression for specifice tissue
+```
+
+### Step 1: Impute gene expression for different tissue using gtex version 7 for reference
+The script is designed is estimated tissue-specific gene expression on GTExV7 data.
 
 ```
 Usage:
@@ -34,9 +65,8 @@ gene expression for specifice tissue
 
 
 
-## Gene set collections and data sets used
+#### **Gene set collections and data sets used**
 
-We calculated coverage for the following combinations:
 
 | Dataset | Tissue|
 | :------ | :--------- |
@@ -63,19 +93,16 @@ To reproduce the results of the coverage analysis perform the following:
 
 ```
 
-## Notes
 
-#### 2023.11.01
-**Finish Task**
+## Reference
++  Hayes BJ, Visscher PM, Goddard ME. Increased accuracy of artificial selection by using the realized relationship matrix. Genet Res (Camb). 2009;91:47–60.
++  https://cnsgenomics.com/data/teaching/GNGWS22/module4/Practical3.pdf
++  https://zjuwhw.github.io/2021/08/20/GRM.html
++  https://www.nature.com/articles/ncomms8432
 
-+ Imputed gene expression in the Brain_Amygdala using our dosage genotype.
-  - Since the rsid in our dosage file is represented as "chr:pos".
-  - In the script we used ` snp151_GRCh37.txt ` to extract SNPID - see analysis.ipynb (1.GenotypeDataset function).
-  
-**To Do List**
-- [ ] Imputed gene expression on other brain tissue using our dosage genotype.
+
   
 
-
+  
 
 
