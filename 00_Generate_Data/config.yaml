@@ -1,4 +1,3 @@
-experiment_dir: "00_Generate_Data"
 weights_data_path: "data/models_all/"
 genotype_data_path: "data/dosage/"
 sample_data: "data/samples.txt"
