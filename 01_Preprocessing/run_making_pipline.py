@@ -67,4 +67,4 @@ if __name__ == '__main__':
          pp.CategoricalImputer_Education(variables=['FatherEducation', 'MotherEducation']),
          pp.CategoricalEncoder_Income(variables=['Income'])
     )
-    dm.RF_OOB_Dataset.save_pipeline(pipeline, output_filename)
+    dm.RF_OOB_Dataset.save(pipeline, output_filename)
