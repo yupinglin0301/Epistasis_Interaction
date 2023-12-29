@@ -8,28 +8,26 @@ In this module, we aim to impute gene expression for different tissue using gtex
 ### Step 0: Regress out potential genetic corrleation structure
 The script is designed to utilize the following equation in order to construct Genomic Best Linear Unbiased Prediction (GBLUP), taking into consideration the influence of genetic correlation structure and subtracting the genetic relationship structure from the phenotype.
 
+$y=1_n \mu+\sum_i W q_i+e$
+
 $\left[\begin{array}{l}\hat{\mu} \\ \hat{g}\end{array}\right]=\left[\begin{array}{cc}1_n^{\prime} 1_n & \mathbf{1}_n^{\prime} Z \\ Z^{\prime} 1_n & Z^{\prime} Z+G^{-1} \frac{\sigma_e^2}{\sigma_g^2}\end{array}\right]^{-1}\left[\begin{array}{l}1_n^{\prime} y \\ Z^{\prime} y\end{array}\right]$
 
 --------------------------
 The construction of the Genetic Relationship Matrix (GRM) was based on the following description:
 
-W is a matrix for standardized genotype matrix, where its element for i-th SNP of j-th individual wij=(xij−2pi)/2pi(1−pi) with xij being the genotype value coded as the number of copies of the reference alleles {0, 1, 2}; then A = WW'/m (genetic relationship matrix (GRM) between individuals)
+W is a matrix for standardized genotype matrix, where its element for i-th SNP of j-th individual wij=(xij−2pi)/2pi(1−pi) with xij being the genotype value coded as the number of copies of the reference alleles {0, 1, 2}; then A = WW'/m (genetic relationship matrix (GRM) between individuals).
 
 ```
 Usage:
 
-    python run_impute_gene_expression.py \
+    python compute_grm.py \
       --data_config  \
-      --data_dir  \
       --work_dir  \
-      --weight_tissue  \
-      --weight_end_prefix  \
-      --weight_prefix  \
-      --dosage_prefix  \
-      --dosage_end_prefix  
+      --dosage_prefix \
+      --dosage_end_prefix 
 
 Output:
-gene expression for specifice tissue
+genetic relationship matrix (GRM)
 ```
 
 ### Step 1: Impute gene expression for different tissue using gtex version 7 for reference
@@ -51,19 +49,6 @@ Usage:
 Output:
 gene expression for specifice tissue
 ```
-
-| Flag | Description |
-|-|-|
-| data_config | The yaml formatted dataset configuration file |
-| data_dir | Data directory where the phenotype and genotype matrix are stored. |
-| work_dir | Working directory where the experiment will be conducted |
-| weight_tissue | Specify the tissue SQLite database |
-| weight_end_prefix | Specify the end prefix of the tissue SQLite database |
-| weight_prefix | Specify the prefix of the tissue SQLite database |
-| dosage_prefix | Specify the prefix of filenames of dosage files |
-| dosage_end_prefix  | Specify the end prefix of filenames of dosage files |
-
-
 
 #### **Gene set collections and data sets used**
 
