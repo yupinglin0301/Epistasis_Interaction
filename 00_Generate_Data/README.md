@@ -1,18 +1,12 @@
-# Data Preprocessing and Impute gene expression
+# Construct genetic relationship matrix and Impute gene expression
 
 In this module, we aim to impute gene expression for different tissue using gtex version 7 for reference.
-- Regress out potential genetic corrleation structure. (Step 0)
+- Create genetic relationship matrix. (Step 0)
 - Impute gene expression for different tissue using gtex version 7 for reference. (Step 1)
 
 ## Scripts
 ### Step 0: Regress out potential genetic corrleation structure
-The script is designed to utilize the following equation in order to construct Genomic Best Linear Unbiased Prediction (GBLUP), taking into consideration the influence of genetic correlation structure and subtracting the genetic relationship structure from the phenotype.
 
-$y=1_n \mu+\sum_i W q_i+e$
-
-$\left[\begin{array}{l}\hat{\mu} \\ \hat{g}\end{array}\right]=\left[\begin{array}{cc}1_n^{\prime} 1_n & \mathbf{1}_n^{\prime} Z \\ Z^{\prime} 1_n & Z^{\prime} Z+G^{-1} \frac{\sigma_e^2}{\sigma_g^2}\end{array}\right]^{-1}\left[\begin{array}{l}1_n^{\prime} y \\ Z^{\prime} y\end{array}\right]$
-
---------------------------
 The construction of the Genetic Relationship Matrix (GRM) was based on the following description:
 
 W is a matrix for standardized genotype matrix, where its element for i-th SNP of j-th individual wij=(xij−2pi)/2pi(1−pi) with xij being the genotype value coded as the number of copies of the reference alleles {0, 1, 2}; then A = WW'/m (genetic relationship matrix (GRM) between individuals).
