@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 from  pathlib import Path
-import joblib
 import numpy as np
 import pandas as pd
+import gzip
+import pickle
 
 
 class ExpressionDataset(ABC):
@@ -49,14 +50,14 @@ class ExpressionDataset(ABC):
     @abstractmethod
     def save(self):
          """
-         Save the version of the pipline
+         Save the preprocessed file
          """
          raise NotImplementedError
      
     @abstractmethod
     def load(self):
          """
-         Load the version of the pipline
+         Load the preprocessed file
          """
          raise NotImplementedError
      
@@ -106,14 +107,13 @@ class GroupShuffleSplitMixin():
         
         return X_train, X_test, y_train, y_test
     
-
-class RF_OOB_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplitMixin):
+class GTEX_raw_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplitMixin):
     """
     A class containing logic used by all the types of gwas datasets for computing out of bag score
-    The RF_OOB_Dataset inheritance pattern from class ExpressionDataset, TrainTestSplitMixin and GropShufflesSplitMixin
+    The GTEX_raw_Dataset inheritance pattern from class ExpressionDataset, TrainTestSplitMixin and GropShufflesSplitMixin
     """
 
-    def __init__(self, gwas_gen_dir, label_df_dir, env_df_dir):
+    def __init__(self, gwas_gen_dir, label_df_dir, env_df_dir, gene_cor_dir):
         """
         An initializer for the class
         """
@@ -122,65 +122,8 @@ class RF_OOB_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplitMi
         self.env_df = pd.read_csv(env_df_dir, sep="\t")
         self.all_gwas_df = pd.concat([self.all_gen_df, self.env_df], axis=1)
         self.label_df = pd.read_csv(label_df_dir, sep="\t")
-
-    @classmethod
-    def from_config(cls, config_file, weight_tissue):
-        """
-        A function to create a new object from paths to its data
-        """
-        data_dir = Path(config_file['dataset']['data_dir'])
-        gwas_df_dir = data_dir / weight_tissue / ("predict_expression_" + weight_tissue + "_output.csv")
-        return cls(gwas_df_dir, config_file['dataset']['phentoype_dir'], config_file['dataset']['env_dir'])
-
-    def get_samples(self):
-        """
-        Return the list of sample accessions for all samples currently available in the dataset
-        """
-        return list(self.all_gwas_df.index)
-
-    def get_features(self):
-        """
-        Return the list of the ids of all the features in the currently available in the dataset 
-        """
-        return list(self.all_gwas_df.columns)
-
-    def generate_labels(self, phen_trait):
-        """
-        Process the y matrix for the given phenotype trait
-        """
-        y_given_phen = self.label_df.loc[:, [phen_trait]]
-        return y_given_phen
-
-    @staticmethod
-    def save(pipeline_to_save, save_file_name):
-        """
-        Save the version of the pipeline
-        """
-        joblib.dump(pipeline_to_save, save_file_name)
-
-    @staticmethod
-    def load(pipeline_file_path):
-        """
-        Load the version of the pipeline
-        """
-        pipeline = joblib.load(filename=pipeline_file_path)
-        return pipeline
-    
-class GTEX_raw_Dataset(ExpressionDataset):
-    """
-    A class containing logic used by all the types of gwas datasets for computing out of bag score
-    The RF_OOB_Dataset inheritance pattern from class ExpressionDataset, TrainTestSplitMixin and GropShufflesSplitMixin
-    """
-
-    def __init__(self, gwas_gen_dir, label_df_dir, env_df_dir):
-        """
-        An initializer for the class
-        """
-        self.all_gen_df = pd.read_csv(gwas_gen_dir, sep=",")
-        self.all_gen_df = self.all_gen_df.drop(['FID', 'IID'], axis=1)
-        self.env_df = pd.read_csv(env_df_dir, sep="\t")
-        self.all_gwas_df = pd.concat([self.all_gen_df, self.env_df], axis=1)
-        self.label_df = pd.read_csv(label_df_dir, sep="\t")
+        with gzip.open(gene_cor_dir, 'rb') as f:
+            self.gene_cor_matrix = pickle.load(f)
 
     @classmethod
     def from_config(cls, config_file, weight_tissue):
@@ -189,7 +132,9 @@ class GTEX_raw_Dataset(ExpressionDataset):
         """
         data_dir = Path(config_file['dataset']['data_dir'])
         gwas_df_dir = data_dir / weight_tissue / (weight_tissue + "_imputed.txt")
-        return cls(gwas_df_dir, config_file['dataset']['phentoype_dir'], config_file['dataset']['env_dir'])
+        gene_cor_dir = data_dir / "genetic_correlation.pkl.gz"
+        
+        return cls(gwas_df_dir, config_file['dataset']['phentoype_dir'], config_file['dataset']['env_dir'], gene_cor_dir)
 
     def get_samples(self):
         """
