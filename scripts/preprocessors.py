@@ -1,5 +1,6 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 import pandas as pd
+import numpy as np
 
 class NumericalImputer(BaseEstimator, TransformerMixin):
         """
@@ -84,3 +85,30 @@ class CategoricalEncoder_Income(BaseEstimator, TransformerMixin):
                 X[feature].fillna(X[feature].mode()[0], inplace=True)
         
         return X
+
+class NormalizeDataTransformer(BaseEstimator, TransformerMixin):
+    """
+    Zero-one standardize a DataFrame column
+    """
+    
+    def __init__(self):
+        pass
+    
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X, y=None):
+        normalized_df = X.apply(self.standardize_column, axis=0)
+        return normalized_df
+    
+    def standardize_column(self, col):
+        max_val = col.max()
+        min_val = col.min()
+        col_range = max_val - min_val
+
+        if col_range == 0:
+            standardized_column = np.zeros(len(col))
+        else:
+            standardized_column = (col - min_val) / col_range
+
+        return standardized_column
