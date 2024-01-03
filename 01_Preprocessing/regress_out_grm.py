@@ -107,10 +107,9 @@ if __name__ == '__main__':
         # Create experiment directory
         experiment_dir = Path(save_dir, input_arguments.weight_tissue).resolve()
         experiment_dir.mkdir(parents=True,  exist_ok=True)
-        gene_expression_output_filename = utils.construct_filename(experiment_dir, "normalized_gene_expression", ".csv", input_arguments.weight_tissue)
-        phenotype_output_filename =  utils.construct_filename(experiment_dir, "imputed", ".csv", input_arguments.phen_name)
+        output_filename = utils.construct_filename(experiment_dir, "normalized_gene_expression", ".csv", input_arguments.weight_tissue)
         # Check output file is exist or not
-        if utils.check_exist_files([gene_expression_output_filename, phenotype_output_filename]):
+        if utils.check_exist_files(output_filename):
             raise Exception("Results files exist already. Please double-check.")
     
     GTEX_Dataset = dm.GTEX_raw_Dataset.from_config(config_file=load_configure, 
@@ -131,7 +130,7 @@ if __name__ == '__main__':
     y_residual = y_raw - expected_value
     y_residual_df = pd.DataFrame(y_residual, columns=[input_arguments.phen_name])
     # save residual phenotype file 
-    dm.GTEX_raw_Dataset.save(y_residual_df, phenotype_output_filename)
+    dm.GTEX_raw_Dataset.save(y_residual_df, output_filename)
     
   
     
