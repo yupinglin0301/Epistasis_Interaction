@@ -6,7 +6,7 @@ In this module, we have two goal :
 
 
 ## Scripts
-### Step 0 : Feature engineering on environmental variables.
+### Step 0 : Feature engineering on gene expression and environmental variables
 ```
 Functions for making pipline for feature engineering
 
