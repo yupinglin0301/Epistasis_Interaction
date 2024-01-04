@@ -5,7 +5,7 @@ In this module, we aim to impute gene expression for different tissue using gtex
 - Impute gene expression for different tissue using gtex version 7 for reference. (Step 1)
 
 ## Scripts
-### Step 0: Regress out potential genetic corrleation structure
+### Step 0: Create genetic relationship matrix
 
 The construction of the Genetic Relationship Matrix (GRM) was based on the following description:
 
@@ -74,7 +74,7 @@ To reproduce the results of the coverage analysis perform the following:
 
 
 ## Reference
-+  Hayes BJ, Visscher PM, Goddard ME. Increased accuracy of artificial selection by using the realized relationship matrix. Genet Res (Camb). 2009;91:47–60.
++  https://charlotte-ngs.github.io/GELASMFS2017/w4/2013_CW_GBLUP.pdf
 +  https://cnsgenomics.com/data/teaching/GNGWS22/module4/Practical3.pdf
 +  https://zjuwhw.github.io/2021/08/20/GRM.html
 +  https://www.nature.com/articles/ncomms8432
