@@ -1,13 +1,3 @@
-
-import argparse
-import utils
-import numpy as np
-import pickle
-import gzip 
-import yaml
-import sys
-from pathlib import Path
-
 """
 Functions for compute genetic relationship matrix
 
@@ -22,6 +12,16 @@ Usage:
 Output:
 Gene relationship matrix(GRM)
 """
+
+import argparse
+import utils
+import numpy as np
+import pickle
+import gzip 
+import yaml
+import sys
+from pathlib import Path
+
 
 def load_genotype_from_dosage(chrfile):
     """
@@ -73,7 +73,7 @@ def compute_grm_from_dosage(genotype_dir, dosage_prefix, dosage_end_prefix, logg
         grm = grm * w1 + grm_now * w2
         nsnp += M
     
-    return grm
+    return grm, nsnp
 
 
 def process_args():
@@ -132,7 +132,6 @@ if __name__ == '__main__':
 
     if not utils.check_exist_directories(genotype_dir):
         raise Exception("The directory" + str(genotype_dir) + "not exist. Please double-check.")
-    
     if not utils.check_exist_directories(save_dir):
         raise Exception("The directory" + str(save_dir) + "not exist. Please double-check.")
     else:
@@ -143,10 +142,11 @@ if __name__ == '__main__':
     
         
     logger.info("Computing Genetic Relationship Matrix  ... ")
-    grm = compute_grm_from_dosage(genotype_dir, 
-                                  input_arguments.dosage_prefix, 
-                                  input_arguments.dosage_end_prefix,
-                                  logger)
+    grm, nsnp = compute_grm_from_dosage(genotype_dir, 
+                                        input_arguments.dosage_prefix, 
+                                        input_arguments.dosage_end_prefix,
+                                        logger)
+    logger.info(f" Number of SNPs {nsnp} ... ")
     with gzip.open(output_filename, 'wb') as f:
         pickle.dump(grm, f)
     
