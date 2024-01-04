@@ -4,7 +4,6 @@ import os
 import re
 import sqlite3
 import sys
-from pathlib import Path
 from tqdm import tqdm
 
 
