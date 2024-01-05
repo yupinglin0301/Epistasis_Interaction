@@ -107,7 +107,8 @@ if __name__ == '__main__':
         # Create experiment directory
         experiment_dir = Path(save_dir, input_arguments.weight_tissue).resolve()
         experiment_dir.mkdir(parents=True,  exist_ok=True)
-        output_filename = utils.construct_filename(experiment_dir, "normalized_gene_expression", ".csv", input_arguments.weight_tissue)
+        output_filename = utils.construct_filename(experiment_dir, "imputed", ".csv", input_arguments.phen_name)
+        
         # Check output file is exist or not
         if utils.check_exist_files(output_filename):
             raise Exception("Results files exist already. Please double-check.")
