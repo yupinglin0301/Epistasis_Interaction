@@ -44,7 +44,6 @@ class CategoricalImputer_Education(BaseEstimator, TransformerMixin):
         return self
     
     def transform(self, X):
-        
         for feature in self.variables:
             X[feature] = X[feature].fillna(self.imputer_dict[feature])
         
