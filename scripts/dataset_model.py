@@ -113,14 +113,16 @@ class GTEX_raw_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplit
     The GTEX_raw_Dataset inheritance pattern from class ExpressionDataset, TrainTestSplitMixin and GropShufflesSplitMixin
     """
 
-    def __init__(self, gwas_gen_dir, label_df_dir, env_df_dir, gene_cor_dir):
+    def __init__(self, gwas_gen_dir, label_df_dir, env_df_dir, gene_cor_dir, cov_df_dir):
         """
         An initializer for the class
         """
         self.all_gen_df = pd.read_csv(gwas_gen_dir, sep=",")
         self.all_gen_df = self.all_gen_df.drop(['FID', 'IID'], axis=1)
         self.env_df = pd.read_csv(env_df_dir, sep="\t")
-        self.all_gwas_df = pd.concat([self.all_gen_df, self.env_df], axis=1)
+        self.cov_df = pd.read_csv(cov_df_dir, sep="\t")
+        
+        self.all_gwas_df = pd.concat([self.all_gen_df, self.env_df, self.cov_df], axis=1)
         self.label_df = pd.read_csv(label_df_dir, sep="\t")
         with gzip.open(gene_cor_dir, 'rb') as f:
             self.gene_cor_matrix = pickle.load(f)
@@ -134,7 +136,7 @@ class GTEX_raw_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplit
         gwas_df_dir = data_dir / weight_tissue / (weight_tissue + "_imputed.txt")
         gene_cor_dir = data_dir / "genetic_correlation.pkl.gz"
         
-        return cls(gwas_df_dir, config_file['dataset']['phentoype_dir'], config_file['dataset']['env_dir'], gene_cor_dir)
+        return cls(gwas_df_dir, config_file['dataset']['phentoype_dir'], config_file['dataset']['env_dir'], gene_cor_dir, config_file['dataset']['cov_dir'])
 
     def get_samples(self):
         """
@@ -160,7 +162,7 @@ class GTEX_raw_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplit
         """
         Save the preprocessed file
         """
-        save_df.to_csv(save_file_name, sep='\t')
+        save_df.to_csv(save_file_name, index=0)
 
     @staticmethod
     def load(save_file_path):
