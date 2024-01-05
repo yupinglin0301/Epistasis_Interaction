@@ -71,6 +71,7 @@ if __name__ == '__main__':
         # Check output file is exist or not
         if utils.check_exist_files(output_filename):
             raise Exception("Results file " + str(output_filename) + " exist already. Please double-check.")
+        
         pipeline = make_pipeline(
             pp.NormalizeDataTransformer()
         )
