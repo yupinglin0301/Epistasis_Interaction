@@ -18,7 +18,7 @@ Usage:
       --normalized  
       
 Output:
-Feature engineering pipeline for specific imputed brain tissue and environmental factors
+Feature engineering pipeline for specific imputed brain tissue and environmental factors(e.g. feature_eng_Brain_Amygdala_output.pkl)
 ```
 
 
@@ -38,7 +38,7 @@ Usage:
       --weight_tissue "Brain_Amygdala" 
       
 Output:
-residual phenotype
+residual phenotype(e.g. CCR_Total_imputed.csv)
 ```
 ## Reproducible Analysis
 
