@@ -169,5 +169,5 @@ class GTEX_raw_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplit
         """
         Load the preprocessed file
         """
-        preprocessed_df = pd.read_csv(filename=save_file_path, sep='\t')
+        preprocessed_df = pd.read_csv(save_file_path, sep='\t')
         return preprocessed_df
