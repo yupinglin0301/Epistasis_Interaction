@@ -1,9 +1,43 @@
 """ A module containing the models to be trained on genomic data"""
 
 import pickle
+import pandas as pd
 from abc import ABC, abstractmethod
 from irf.ensemble import RandomForestClassifier
 from irf.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score
+
+
+class Regression_Eval(object):
+    
+    def get_metrics(self,
+                    y_train_df,
+                    y_test_df,
+                    y_cv_df,
+                    y_pred_train,
+                    y_pred_test,
+                    **kwargs):
+            
+            """
+            Get regression metric values for given model predictions
+            """
+
+            train_metrics = self.get_continuous_metrics(y_train_df.status, y_pred_train)
+            cv_metrics = self.get_continuous_metrics(y_train_df.status, y_cv_df)
+            test_metrics = self.get_continuous_metrics(y_test_df.status, y_pred_test)
+
+            columns = list(train_metrics.keys()) + ['data_type'] + list(kwargs.keys())
+            train_metrics = list(train_metrics.values()) + ['train'] + list(kwargs.values())
+            cv_metrics = list(cv_metrics.values()) + ['cv'] + list(kwargs.values())
+            test_metrics = list(test_metrics.values()) + ['test'] + list(kwargs.values())
+
+            return pd.DataFrame([train_metrics, cv_metrics, test_metrics], columns=columns)
+
+
+    def get_continuous_metrics(self, y_true, y_pred):
+    
+            r2 = r2_score(y_true, y_pred)
+            return {'r2': r2}
 
 
 class GWAS_Model(ABC):
@@ -188,3 +222,35 @@ class IterativeRFRegression(GWAS_Model):
 
         with open(model_path, "rb") as model_file:
             return pickle.load(model_file)
+        
+        
+        
+ 
+ class Regression_Eval(object):
+    
+    def get_metrics(self,
+                    y_train_df,
+                    y_test_df,
+                    y_cv_df,
+                    y_pred_train,
+                    y_pred_test,
+                    **kwargs):
+            
+            """Get regression metric values for given model predictions."""
+
+            train_metrics = self.get_continuous_metrics(y_train_df.status, y_pred_train)
+            cv_metrics = self.get_continuous_metrics(y_train_df.status, y_cv_df)
+            test_metrics = self.get_continuous_metrics(y_test_df.status, y_pred_test)
+
+            columns = list(train_metrics.keys()) + ['data_type'] + list(kwargs.keys())
+            train_metrics = list(train_metrics.values()) + ['train'] + list(kwargs.values())
+            cv_metrics = list(cv_metrics.values()) + ['cv'] + list(kwargs.values())
+            test_metrics = list(test_metrics.values()) + ['test'] + list(kwargs.values())
+
+            return pd.DataFrame([train_metrics, cv_metrics, test_metrics], columns=columns)
+
+
+    def get_continuous_metrics(self, y_true, y_pred):
+    
+            r2 = r2_score(y_true, y_pred)
+            return {'r2': r2}
