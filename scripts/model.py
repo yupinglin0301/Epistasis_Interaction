@@ -160,7 +160,7 @@ class IterativeRFClassifier(GWAS_Model):
             return pickle.load(model_file)
     
   
-class IterativeRFRegression(GWAS_Model):
+class IterativeRFRegression(GWAS_Model, Regression_Eval):
     """
     A Iterative Random Forest Regression implementation designed to hew closely to the skl defaults
     """
