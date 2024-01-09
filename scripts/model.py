@@ -114,7 +114,7 @@ class IterativeRFClassifier(GWAS_Model):
         """
 
         self.model = RandomForestClassifier(random_state=self.rseed, **self.model_kwargs)
-        self.model = self.model.fit(X_train, Y_train, feature_weight = feature_weight)
+        self.model = self.model.fit(X_train, Y_train, feature_weight=feature_weight)
         return self
 
     def save_model(self, out_path):
@@ -188,7 +188,7 @@ class IterativeRFRegression(GWAS_Model, Regression_Eval):
         """
 
         self.model = RandomForestRegressor(random_state=self.rseed, **self.model_kwargs)
-        self.model = self.model.fit(X_train, Y_train, feature_weight = feature_weight)
+        self.model = self.model.fit(X_train, Y_train, feature_weight=feature_weight)
         return self
 
 
