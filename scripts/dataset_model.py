@@ -105,7 +105,7 @@ class GroupShuffleSplitMixin():
         X_train, X_test = X[train_ids], X[test_ids]
         y_train, y_test = y[train_ids], y[test_ids]
         
-        return X_train, X_test, y_train, y_test
+        return X_train, X_test, y_train, y_test, train_ids, test_ids
     
 class GTEX_raw_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplitMixin):
     """
