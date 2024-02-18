@@ -1,6 +1,6 @@
 # Construct genetic relationship matrix and Impute gene expression
 
-In this module, we aim to impute gene expression for different tissue using gtex version 7 for reference.
+In this module, we aim to impute gene expression for different tissue using gtex version 7 for reference and create genetic relationship matrix
 - Create genetic relationship matrix. (Step 0)
 - Impute gene expression for different tissue using gtex version 7 for reference. (Step 1)
 
@@ -9,7 +9,9 @@ In this module, we aim to impute gene expression for different tissue using gtex
 
 The construction of the Genetic Relationship Matrix (GRM) was based on the following description:
 
-W is a matrix for standardized genotype matrix, where its element for i-th SNP of j-th individual wij=(xij−2pi)/2pi(1−pi) with xij being the genotype value coded as the number of copies of the reference alleles {0, 1, 2}; then A = WW'/m (genetic relationship matrix (GRM) between individuals).
++ W is a matrix for standardized genotype matrix, where its element for i-th SNP of j-th individual wij=(xij−2pi)/2pi(1−pi) with xij being the genotype value coded as the number of copies of the reference alleles {0, 1, 2}; 
++ Then A = WW'/m (genetic relationship matrix (GRM) between individuals).
++ The final GRM is the weighted averaged matrix combined multiple GRMS. Weights proportional to the numbers of SNPs
 
 ```
 Usage:
