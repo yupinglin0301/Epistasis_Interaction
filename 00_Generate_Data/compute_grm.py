@@ -20,6 +20,7 @@ import pickle
 import gzip 
 import yaml
 import sys
+import time
 from pathlib import Path
 
 
@@ -53,14 +54,12 @@ def compute_grm_from_dosage(genotype_dir, dosage_prefix, dosage_end_prefix, logg
     
     nsnp = 0
     grm = None
-    for chrfile in [
-        x for x in sorted(genotype_dir.iterdir())
-        if x.name.startswith(str(dosage_prefix))
-        and x.name.endswith(str(dosage_end_prefix))
-    ]:
-          
+    for chr in range(1, 23):
+        
+        chrfile = genotype_dir / (dosage_prefix + str(chr) + dosage_end_prefix)
         logger.info(f"Computing GRM for {chrfile} ... ")
         geno = load_genotype_from_dosage(chrfile)
+        
         # calc sub-GRM
         M = geno.shape[1]
         grm_now = geno @ (geno.T / M)
@@ -142,13 +141,18 @@ if __name__ == '__main__':
     
         
     logger.info("Computing Genetic Relationship Matrix  ... ")
+    
+    start_training = time.time()
     grm, nsnp = compute_grm_from_dosage(genotype_dir, 
                                         input_arguments.dosage_prefix, 
                                         input_arguments.dosage_end_prefix,
                                         logger)
+    
+    logger.info("Computing Genetic Relationship Matrix Total Time {}".format(time.time()-start_training))
     logger.info(f" Number of SNPs {nsnp} ... ")
+    
     with gzip.open(output_filename, 'wb') as f:
-        pickle.dump(grm, f)
+         pickle.dump(grm, f)
     
 
 
