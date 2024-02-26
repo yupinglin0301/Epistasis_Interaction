@@ -136,6 +136,8 @@ class RF_DataModel(object):
         """
 
         value = dtree.tree_.value
+        
+        n_node_samples = dtree.tree_.n_node_samples
 
         # Get the total number of features in the training data
         tot_num_features = X_train.shape[1]
@@ -184,10 +186,14 @@ class RF_DataModel(object):
 
         # Total number of training samples used in the prediction of
         # each class at each leaf node
-        tot_leaf_node_values = [
-                np.sum(leaf_node_values)
-                for leaf_node_values in all_leaf_node_values
-        ]
+        #tot_leaf_node_values = [
+        #        np.sum(leaf_node_values)
+        #        for leaf_node_values in all_leaf_node_values
+        #]
+        
+        # Get the total number of training samples used in each leaf node
+        tot_leaf_node_values = [n_node_samples[node_id].astype(int)
+                                for node_id in all_leaf_nodes]
 
         # Get all feature index
         #all_features_idx = np.array(range(tot_num_features), dtype='int64')
@@ -328,7 +334,8 @@ class RIT_DataModel(object):
             # Create the weighted randomly sample path as a generator
             gen_random_leaf_paths = self.generate_rit_samples(
                 all_rf_tree_data=all_rf_tree_data,
-                bin_class_type=bin_class_type)
+                bin_class_type=bin_class_type
+            )
 
             # Create the RIT object
             rit = self.build_tree(
