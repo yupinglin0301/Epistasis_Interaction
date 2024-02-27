@@ -14,8 +14,7 @@ Functions for remove out genetic relationship structure
 Usage:
     
     nohup python regress_out_grm.py \
-      --work_dir "/exeh_4/yuping/Epistasis_Interaction/01_Preprocessing" \
-      --phen_name "CCR_Total" \
+      --phen_name "CWR_Total" \
       --weight_tissue "Brain_Amygdala" >  /exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/Log/nohup.txt &
       
 Output:
@@ -45,13 +44,15 @@ def compute_expected_value(grm, y):
     coeff[1:, 1:] = np.matmul(Z.T, Z) + grm_inv
     
     # Compute the right-hand side
-    rhs = np.vstack((np.matmul(ones.T, y), np.matmul(Z.T, y)))
-    gblup = np.linalg.solve(coeff, rhs)
+    crossprod_ones_y = np.dot(ones.T, y).flatten()
+    crossprod_Z_y = np.dot(Z.T, y).flatten()
+    RHS = np.concatenate((crossprod_ones_y, crossprod_Z_y), axis=0)
+    
+    gblup = np.linalg.solve(coeff, RHS)
     # Compute expected value
-    expected_value = np.ones((len(y),1)) * gblup[0] + np.matmul(Z, gblup[1:])
+    expected_value = gblup[0] + np.matmul(Z, gblup[1:])
     
     return expected_value
-    
 
 
 def process_args():
@@ -88,10 +89,15 @@ if __name__ == '__main__':
     input_arguments = process_args()
     # set up logging
     logger = utils.logging_config(input_arguments.weight_tissue + input_arguments.phen_name)
+    # set up repo_directory
+    repo_root = Path(__file__).resolve().parent.parent
     
+    
+    
+    logger.info("Check if all files and directories exist ... ")
     
     # loading configure file
-    work_dir = Path(input_arguments.work_dir)
+    work_dir = repo_root / str("01_Preprocessing")
     configure_file = work_dir.joinpath("config.yaml")
     try:
         with open(configure_file) as infile:
@@ -112,10 +118,13 @@ if __name__ == '__main__':
         # Check output file is exist or not
         if utils.check_exist_files(output_filename):
             raise Exception("Results files exist already. Please double-check.")
+        
+    
+    logger.info("Regressing out genetic correlation structure ... ")
     
     GTEX_Dataset = dm.GTEX_raw_Dataset.from_config(config_file=load_configure, 
                                                    weight_tissue=input_arguments.weight_tissue)
-
+    
     # generate phenotype label
     y_given_raw_df = GTEX_Dataset.generate_labels(input_arguments.phen_name)
     # impute missing value with mean value
@@ -128,7 +137,7 @@ if __name__ == '__main__':
     # get expected_value 
     expected_value = compute_expected_value(grm, y_raw)
     # substract genetic relationship structure from phenotype
-    y_residual = y_raw - expected_value
+    y_residual = y_raw.flatten() - expected_value
     y_residual_df = pd.DataFrame(y_residual, columns=[input_arguments.phen_name])
     # save residual phenotype file 
     dm.GTEX_raw_Dataset.save(y_residual_df, output_filename)
