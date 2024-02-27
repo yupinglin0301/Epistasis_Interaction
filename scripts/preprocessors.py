@@ -87,22 +87,28 @@ class CategoricalEncoder_Income(BaseEstimator, TransformerMixin):
 
 class NormalizeDataTransformer(BaseEstimator, TransformerMixin):
     """
-    Zero-one standardize a DataFrame column
+    Min-max normalize a DataFrame column
     """
     
     def __init__(self):
-        pass
-    
+        self.column_max = None
+        self.column_min = None
+
     def fit(self, X, y=None):
+        self.column_max = X.max()
+        self.column_min = X.min()
         return self
-    
-    def transform(self, X, y=None):
-        normalized_df = X.apply(self.standardize_column, axis=0)
-        return normalized_df
-    
-    def standardize_column(self, col):
-        max_val = col.max()
-        min_val = col.min()
+
+    def transform(self, X):
+        standardized_X = X.copy()
+        for col in X.columns:
+            standardized_X[col] = self.standardize_column(X[col], col)
+        return standardized_X
+
+    def standardize_column(self, col, col_name):
+        """Zero-one standardize a dataframe column"""
+        max_val = self.column_max[col_name]
+        min_val = self.column_min[col_name]
         col_range = max_val - min_val
 
         if col_range == 0:
