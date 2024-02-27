@@ -12,7 +12,6 @@ Functions for making pipline for feature engineering
 Usage:
     
     nohup python run_making_pipline.py \
-      --work_dir "/exeh_4/yuping/Epistasis_Interaction/01_Preprocessing" \
       --weight_tissue "Brain_Amygdala" \
       --normalized  >  /exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/Log/nohup.txt &
       
@@ -52,11 +51,19 @@ if __name__ == '__main__':
     # process command line arguments
     input_arguments = process_args()
     # set up logging
-    logger = utils.logging_config(input_arguments.weight_tissue)
+    if input_arguments.normalized:
+        logger = utils.logging_config(input_arguments.weight_tissue + "Normalized")
+    else:
+        logger = utils.logging_config(input_arguments.weight_tissue + "Feature_Engineering")
+    # set up repo_directory
+    repo_root = Path(__file__).resolve().parent.parent
+    
+ 
     
     logger.info("Check if all files and directories exist ... ")
     # Check save directory if is exist or not
-    save_dir = Path(input_arguments.work_dir) / "results"
+    work_dir = repo_root / str("01_Preprocessing")
+    save_dir = work_dir.joinpath("results")
     if not utils.check_exist_directories(save_dir):
         raise Exception("The directory" + str(save_dir) + "not exist. Please double-check.")
     else:
@@ -67,7 +74,9 @@ if __name__ == '__main__':
     logger.info("Creating pipline {}... ".format(input_arguments.weight_tissue))
     
     if input_arguments.normalized:
-        output_filename = utils.construct_filename(experiment_dir, "output", ".pkl", "feature_eng", input_arguments.weight_tissue)
+        
+        logger.info("Normalized gene expression data")
+        output_filename = utils.construct_filename(experiment_dir, "output", ".pkl", "normalized", input_arguments.weight_tissue)
         # Check output file is exist or not
         if utils.check_exist_files(output_filename):
             raise Exception("Results file " + str(output_filename) + " exist already. Please double-check.")
