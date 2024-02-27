@@ -1,43 +1,10 @@
 """ A module containing the models to be trained on genomic data"""
 
 import pickle
-import pandas as pd
 from abc import ABC, abstractmethod
 from irf.ensemble import RandomForestClassifier
 from irf.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score
-
-
-class Regression_Eval(object):
-    
-    def get_metrics(self,
-                    y_train_df,
-                    y_test_df,
-                    y_cv_df,
-                    y_pred_train,
-                    y_pred_test,
-                    **kwargs):
-            
-            """
-            Get regression metric values for given model predictions
-            """
-
-            train_metrics = self.get_continuous_metrics(y_train_df.status, y_pred_train)
-            cv_metrics = self.get_continuous_metrics(y_train_df.status, y_cv_df)
-            test_metrics = self.get_continuous_metrics(y_test_df.status, y_pred_test)
-
-            columns = list(train_metrics.keys()) + ['data_type'] + list(kwargs.keys())
-            train_metrics = list(train_metrics.values()) + ['train'] + list(kwargs.values())
-            cv_metrics = list(cv_metrics.values()) + ['cv'] + list(kwargs.values())
-            test_metrics = list(test_metrics.values()) + ['test'] + list(kwargs.values())
-
-            return pd.DataFrame([train_metrics, cv_metrics, test_metrics], columns=columns)
-
-
-    def get_continuous_metrics(self, y_true, y_pred):
-    
-            r2 = r2_score(y_true, y_pred)
-            return {'r2': r2}
+from sklearn.linear_model import LinearRegression
 
 
 class GWAS_Model(ABC):
@@ -160,7 +127,7 @@ class IterativeRFClassifier(GWAS_Model):
             return pickle.load(model_file)
     
   
-class IterativeRFRegression(GWAS_Model, Regression_Eval):
+class IterativeRFRegression(GWAS_Model):
     """
     A Iterative Random Forest Regression implementation designed to hew closely to the skl defaults
     """
@@ -222,3 +189,145 @@ class IterativeRFRegression(GWAS_Model, Regression_Eval):
 
         with open(model_path, "rb") as model_file:
             return pickle.load(model_file)
+        
+
+class hiPRS(GWAS_Model):
+    """
+    A Linear Regression implementation designed to hew closely to the skl defaults
+    """
+    def __init__(self):
+        """
+        Model initialization function
+        :return: None
+        """
+        self.model = None
+
+    def fit(self, X_train, Y_train):
+        """
+        Create and fit the iterative random forest regression
+        
+        :param X_train: training data
+        :param Y_train: training label
+        :param feature_weight: weights for each feature
+        :return: The fitted model 
+        """
+
+        self.model = LinearRegression()
+        self.model = self.model.fit(X_train, Y_train)
+        return self
+
+    def save_model(self, out_path):
+        """
+        Write the regressor to a file
+        
+        :param out_path: The path to the file to write the classifier to
+        :return: None
+        """
+
+        with open(out_path, "wb") as out_file:
+            pickle.dump(self, out_file)
+    
+    def predict(self, X_train):
+        """
+        Predict target value based on X_train
+        """
+        
+        assert self.model is not None, "Need to fit model first"
+        return self.model.predict(X_train)
+        
+    @staticmethod
+    def load_model(model_path):
+        """
+        Read a pickled model from a file and return it
+        
+        :param model_path The location where the model is 
+        :return: The model saved at `model_path`
+        """
+
+        with open(model_path, "rb") as model_file:
+            return pickle.load(model_file)
+        
+        
+class PenalizedPRS(GWAS_Model):
+    """
+    A penalized Linear Regression implementation designed to hew closely to the skl defaults
+    """
+    def __init__(self):
+        """
+        Model initialization function
+        :return: None
+        """
+        self.penalty = None
+        self.model = None
+
+    def fit(self, X_train, Y_train, penalty):
+        """
+        Create and fit the iterative random forest regression
+        
+        :param X_train: training data
+        :param Y_train: training label
+        :param feature_weight: weights for each feature
+        :return: The fitted model 
+        """
+        
+        if(penalty == 'l1'):
+            self.solver = 'liblinear'
+        
+        elif(penalty == 'elasticnet'):
+            self.solver = 'saga'
+            self.l1_ratio = 0.5
+        elif(penalty == 'l2' or penalty == 'none'):
+            self.solver = 'lbfgs'
+        else:
+            raise RuntimeError("Unrecognized penalty type.")
+        self.clock.start()
+        self.model = LM.LogisticRegression(penalty = self.penalty, max_iter = 500,
+                                           solver = self.solver, l1_ratio = self.l1_ratio).fit(xdummies, y)
+        self.clock.stop()
+        self.covs = np.array([str(s) for s in xdummies.columns])
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+
+        self.model = LinearRegression()
+        self.model = self.model.fit(X_train, Y_train)
+        return self
+
+    def save_model(self, out_path):
+        """
+        Write the regressor to a file
+        
+        :param out_path: The path to the file to write the classifier to
+        :return: None
+        """
+
+        with open(out_path, "wb") as out_file:
+            pickle.dump(self, out_file)
+    
+    def predict(self, X_train):
+        """
+        Predict target value based on X_train
+        """
+        
+        assert self.model is not None, "Need to fit model first"
+        return self.model.predict(X_train)
+        
+    @staticmethod
+    def load_model(model_path):
+        """
+        Read a pickled model from a file and return it
+        
+        :param model_path The location where the model is 
+        :return: The model saved at `model_path`
+        """
+
+        with open(model_path, "rb") as model_file:
+            return pickle.load(model_file)
+        
