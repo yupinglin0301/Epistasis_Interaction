@@ -184,13 +184,6 @@ class RF_DataModel(object):
         ]
 
 
-        # Total number of training samples used in the prediction of
-        # each class at each leaf node
-        #tot_leaf_node_values = [
-        #        np.sum(leaf_node_values)
-        #        for leaf_node_values in all_leaf_node_values
-        #]
-        
         # Get the total number of training samples used in each leaf node
         tot_leaf_node_values = [n_node_samples[node_id].astype(int)
                                 for node_id in all_leaf_nodes]
