@@ -1,10 +1,14 @@
 from abc import ABC, abstractmethod
 from  pathlib import Path
+
 import numpy as np
 import pandas as pd
 import gzip
 import pickle
 
+
+
+#repo_root = Path(__file__).resolve().parent.parent
 
 class ExpressionDataset(ABC):
     """ 
@@ -91,14 +95,13 @@ class GroupShuffleSplitMixin():
     """
     A mixin class providing group shuffle splitting functionality
     """
-    
     def group_shuffle_split(self, X, y, groups, seed, n_splits=1 , test_size=0.2):
         """
         Split the data into train and test sets
         """
         
         from sklearn.model_selection import GroupShuffleSplit
-        gss = GroupShuffleSplit(n_splits=n_splits, train_size=test_size, random_state=seed)  
+        gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=seed)  
         split = gss.split(X, y, groups=groups)
         train_ids, test_ids = next(split)
         
@@ -107,10 +110,33 @@ class GroupShuffleSplitMixin():
         
         return X_train, X_test, y_train, y_test, train_ids, test_ids
     
-class GTEX_raw_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplitMixin):
+class Repeated_GroupKFoldShuffleMixin():
+    """
+    A mixin class providing repeated group shuffle splitting functionality
+    """
+    def repeated_groupKFoldshuffle_split(self, X, y, n_splits=3, groups=None, random_state=None):
+        # Find the unique groups in the dataset.
+        unique_groups = np.unique(groups)
+
+        # Shuffle the unique groups if shuffle is true.
+        np.random.RandomState(random_state).shuffle(unique_groups)
+        # Split the shuffled groups into n_splits.
+        split_groups = np.array_split(unique_groups, n_splits)
+
+        # For each split, determine the train and test indices.
+        for test_group_ids in split_groups:
+            test_mask = np.isin(groups, test_group_ids)
+            train_mask = ~test_mask
+
+            train_idx = np.where(train_mask)[0]
+            test_idx = np.where(test_mask)[0]
+
+            yield train_idx, test_idx
+
+class GTEX_raw_Dataset(ExpressionDataset, GroupShuffleSplitMixin, Repeated_GroupKFoldShuffleMixin):
     """
     A class containing logic used by all the types of gwas datasets for computing out of bag score
-    The GTEX_raw_Dataset inheritance pattern from class ExpressionDataset, TrainTestSplitMixin and GropShufflesSplitMixin
+    The GTEX_raw_Dataset inheritance pattern from class ExpressionDataset, GroupShuffleMixin and Repeated_GroupKFoldShuffleMixin
     """
 
     def __init__(self, gwas_gen_dir, label_df_dir, env_df_dir, gene_cor_dir, cov_df_dir):
@@ -132,6 +158,7 @@ class GTEX_raw_Dataset(ExpressionDataset, TrainTestSplitMixin, GroupShuffleSplit
         """
         A function to create a new object from paths to its data
         """
+      
         data_dir = Path(config_file['dataset']['data_dir'])
         gwas_df_dir = data_dir / weight_tissue / (weight_tissue + "_imputed.txt")
         gene_cor_dir = data_dir / "genetic_correlation.pkl.gz"
