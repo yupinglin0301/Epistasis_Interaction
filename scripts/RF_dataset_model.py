@@ -258,6 +258,8 @@ class RIT_DataModel(object):
     def filter_leaves_classifier(self,
                                  dtree_data,
                                  bin_class_type):
+        
+        # following https://github.com/sumbose/iRF/blob/master/R/gRIT.R to convert leaf nodes in regression to binary classes.
 
         # Filter based on the specific value of the leaf node classes
         leaf_node_classes = dtree_data['all_leaf_node_values']
@@ -302,7 +304,7 @@ class RIT_DataModel(object):
 
     def get_rit_tree_data(self,
                           all_rf_tree_data,
-                          bin_class_type=1,
+                          bin_class_type,
                           M=10,
                           max_depth=3,
                           noisy_split=False,
