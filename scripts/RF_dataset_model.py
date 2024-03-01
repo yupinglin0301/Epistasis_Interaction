@@ -4,6 +4,8 @@ import numpy as np
 from functools import partial
 from sklearn.tree import _tree
 from scipy import stats
+import statistics
+
 
 
 class RITNode(object):
@@ -96,18 +98,11 @@ class RF_DataModel(object):
         feature_importances_rank_idx = np.argsort(feature_importances)[::-1]
 
 
-        # get all the validation rf_metrics
-        #rf_validation_metrics = get_validation_metrics(inp_class_reg_obj=rf,
-        #                                           y_true=y_test,
-        #                                           X_test=X_test)
-
-
         # Create a dictionary with all random forest metrics
         # This currently includes the entire random forest fitted object
         all_rf_tree_outputs = {
             "rf_obj": rf,
             "get_params": rf.get_params,
-            #"rf_validation_metrics": rf_validation_metrics,
             "feature_importances": feature_importances,
             "feature_importances_std": feature_importances_std,
             "feature_importances_rank_idx": feature_importances_rank_idx
@@ -203,11 +198,11 @@ class RF_DataModel(object):
             "all_leaf_paths_features": all_leaf_paths_features,
             "all_uniq_leaf_paths_features": all_uniq_leaf_paths_features,
             "tot_leaf_node_values": tot_leaf_node_values,
-            "all_leaf_node_classes": all_leaf_node_classes
+            "all_leaf_node_classes": all_leaf_node_classes,
+            "all_leaf_node_values": all_leaf_node_values
         }
 
         return tree_data
-
 
 
 class RIT_DataModel(object):
@@ -265,24 +260,19 @@ class RIT_DataModel(object):
                                  bin_class_type):
 
         # Filter based on the specific value of the leaf node classes
-        leaf_node_classes = dtree_data['all_leaf_node_classes']
+        leaf_node_classes = dtree_data['all_leaf_node_values']
 
-        if bin_class_type is not None:
-
-            # unique feature paths from root to leaf node
-            unique_feature_paths = [
+       # unique feature paths from root to leaf node
+        unique_feature_paths = [
                 i for i, j in zip(dtree_data['all_uniq_leaf_paths_features'],
-                              leaf_node_classes) if j == bin_class_type
-             ]
+                              leaf_node_classes) if j > statistics.median(bin_class_type)
+        ]
 
-            # total number of training samples ending up at each node
-            tot_leaf_node_values = [
+        # total number of training samples ending up at each node
+        tot_leaf_node_values = [
                 i for i, j in zip(dtree_data['tot_leaf_node_values'],
-                              leaf_node_classes) if j == bin_class_type
-            ]
-        else:
-            unique_feature_paths = list(dtree_data['all_uniq_leaf_paths_features'])
-            tot_leaf_node_values = list(dtree_data['tot_leaf_node_values'])
+                              leaf_node_classes) if j > statistics.median(bin_class_type)
+        ]
             
         all_filtered_output = {
             "Unique_feature_paths": unique_feature_paths,
