@@ -6,14 +6,14 @@ dataset:
    preprocess_data_dir: "/exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/results"
    group_dir: "/mnt/data/share/yuping/data/group_id.csv"
 model_params:
-    name: "IRF_Regression"
-    n_estimators: [500]
-    max_features: [700] 
-    iterations: [5]
-    n_bootstrapped: [50]
-    n_intersection_tree: [500]
-    max_depth: [5]
-    num_splits: [2]
+   name: "IRF_Regression"
+   n_estimators: [500]
+   max_features: [700] 
+   iterations: [5]
+   n_bootstrapped: [50]
+   n_intersection_tree: [500]
+   max_depth: [5]
+   num_splits: [2]
 
 
 
