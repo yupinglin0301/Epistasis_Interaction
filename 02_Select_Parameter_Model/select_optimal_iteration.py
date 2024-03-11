@@ -13,6 +13,7 @@ import sys
 import yaml
 import joblib
 import time
+import datetime
 
 """
 Functions for select optimal iteration for iterative random forest model
@@ -23,31 +24,36 @@ Usage:
       --work_dir "/exeh_4/yuping/Epistasis_Interaction/02_Select_Parameter_Model" \
       --weight_tissue "Brain_Amygdala" \
       --phen_name  "CWR_Total" > /exeh_4/yuping/Epistasis_Interaction/02_Select_Parameter_Model/Log/nohup.txt &
-      
           
-      
 Output:
-Feature engineering pipeline for specific imputed brain tissue and environmental factors
-
+out-of bag (OOB) score for each iteration
 """
 
 
-class OOB_ParamGridSearch:
+class OOB_ParamGridSearch(object):
     def __init__(self, 
                  estimator, 
                  param_grid,
-                 n_jobs):
+                 seed,
+                 n_jobs=-1, 
+                 refit=True):
         """
         Initializes the OOB_ParamGridSearch class.
 
        
         :param estimator (object): The base estimator to be used.
         :param param_grid (dict or list of dicts): The parameter grid to search over.
+        :param seed (int): The random for reproducibility
         :param n_jobs (int, optional): The number of jobs to run in parallel. Defaults to -1.
+        :param refit (bool, optional): Indicates whether to refit the model with the best hyperparameters. Defaults to True.
+        :param task (str, optional): The task type, either "classification" or "regression". Defaults to "classification".
+        :param metric (str, optional): The evaluation metric to use. Defaults to "mse".
         """
         self.n_jobs = n_jobs
+        self.seed = seed 
         self.estimator = estimator
         self.param_grid = param_grid
+        self.refit = refit
 
     def fit(self, 
             X_train, 
@@ -62,26 +68,16 @@ class OOB_ParamGridSearch:
 
         :return self (object): Returns self.
         """
-        params_iterable = list(ParameterGrid(self.param_grid))
+        self.params_iterable = list(ParameterGrid(self.param_grid))
         parallel = joblib.Parallel(self.n_jobs)
 
         output = parallel(
             joblib.delayed(self.fit_and_score)(deepcopy(self.estimator), X_train, y_train, model_output_dir, parameters)
-            for parameters in params_iterable)
+            for parameters in self.params_iterable)
 
-        output_array = np.array(output)
-        best_index = np.argmin(output_array)
+        self.output_array = np.array(output)
         
-        self.best_score_ = output_array[best_index]
-        self.best_param_ = params_iterable[best_index]
 
-        cv_results = pd.DataFrame(output, columns=['OOB_Error_Score'])
-        df_params = pd.DataFrame(params_iterable)
-        cv_results = pd.concat([cv_results, df_params], axis=1)
-        cv_results["params"] = params_iterable
-        self.cv_results = (cv_results.
-                           sort_values(['OOB_Error_Score'], ascending=True).
-                           reset_index(drop=True))
         return self
 
     def fit_and_score(self, 
@@ -96,7 +92,7 @@ class OOB_ParamGridSearch:
         :param estimator (object): The estimator object.
         :param X_train (array-like): The input features for training.
         :param y_train (array-like): The target values for training.
-        :param model_output_dir (str): The model_output_dir for well_trained model.
+        :param model_output_dir (str): The model_output_dir for well_trained model
         :param parameters (dict): The hyperparameters to use for fitting the model.
 
         :return oob_error (float): The calculated out-of-bag error score.
@@ -108,7 +104,7 @@ class OOB_ParamGridSearch:
         initial_weights = None
         # Loop through number of iteration
         for k in range(int(parameters['K'])):
-
+           
             if k == 0:
                 # Initially feature weights are None
                 feature_importances = initial_weights
@@ -146,51 +142,40 @@ class OOB_ParamGridSearch:
         
         model_name = model_output_dir / ("iterative" + str(parameters['K']) + ".pkl")
         estimator.save_model(model_name)
-        oob_score = self.oob_score_accuracy(estimator, X_train, y_train)
+        oob_error = 1 - estimator.model.oob_score_
+        
+        return oob_error, all_rf_weights
 
-        return oob_score
-
-    def oob_score_accuracy(self, 
-                           rf, 
-                           X_train, 
-                           y_train, 
-                           ):
+    @staticmethod
+    def extract_oob_result(output_array, params_iterable):
         """
-        Calculates the out-of-bag (OOB) score accuracy.
+        Extracts the out-of-bag (OOB) results from an output array and a params iterable.
+        
+        :param output_array (list): List of output values.
+        :param params_iterable (list): List of parameter values.
 
-       
-        :param rf (object): The random forest model.
-        :param X_train (array-like): The input features for training.
-        :param y_train (array-like): The target values for training.
-        :param task (str): The task type, either "classification" or "regression".
-        :param metric (str): The evaluation metric to use.
-
-        :return oob_score (float): The calculated out-of-bag score accuracy.
+        :return  A tuple containing the list of RF weights and a DataFrame with OOB error scores and parameters.
         """
-        from sklearn.ensemble._forest import _generate_unsampled_indices, _get_n_samples_bootstrap
+        # Extract OOB error scores from output array
+        oob_error_score = [i[0] for i in output_array]
 
+        # Find the index of the best OOB error score
+        best_index = np.argmin(oob_error_score)
+        best_param_ = params_iterable[best_index]
 
-        n_samples = len(X_train)
-        predictions = np.zeros(n_samples)
-        n_predictions = np.zeros(n_samples)
-        for tree in getattr(rf, "model").estimators_:
-                n_samples_bootstrap = _get_n_samples_bootstrap(n_samples, n_samples)
-                unsampled_indices = _generate_unsampled_indices(tree.random_state, n_samples, n_samples_bootstrap)
+        # Create a DataFrame with OOB error scores and parameters
+        cv_results = pd.DataFrame(oob_error_score, columns=['OOB_Error_Score'])
+        df_params = pd.DataFrame(params_iterable)
+        cv_results = pd.concat([cv_results, df_params], axis=1)
+        cv_results["params"] = params_iterable
+        cv_results = (cv_results.
+                      sort_values(['OOB_Error_Score'], ascending=True).
+                      reset_index(drop=True))
 
-                tree_preds = tree.predict(X_train[unsampled_indices, :])
-                predictions[unsampled_indices] += tree_preds
-                n_predictions[unsampled_indices] += 1
-                
-                if (n_predictions == 0).any():
-                    print("Too few trees; some variables do not have OOB scores.")
-                    n_predictions[n_predictions == 0] = 1
+        # Extract RF weights for the best parameter value
+        all_rf_weights = [j[1]["rf_weight{}".format(best_param_['K'])] for i, j in enumerate(output_array) if(i+1)==best_param_['K']]
 
-        predictions /= n_predictions
-
-        oob_score = mean_squared_error(y_train, predictions)
-
-        return oob_score
-
+        return all_rf_weights, cv_results
 
 def process_args():
     """
@@ -241,6 +226,7 @@ if __name__ == '__main__':
     except Exception:
             sys.stderr.write("Please specify valid yaml file.")
             sys.exit(1)
+            
     # Set the random state for reproducibility
     np.random.seed(load_configure['default_seed'])
     
@@ -256,8 +242,11 @@ if __name__ == '__main__':
         # Create experiment directory
         experiment_dir = save_dir / input_arguments.weight_tissue
         experiment_dir.mkdir(parents=True,  exist_ok=True)
-        oob_score_filename = utils.construct_filename(experiment_dir, "result", ".csv", input_arguments.weight_tissue, "oob_score")
         
+        timestamp = datetime.datetime.now().today().isoformat()
+        oob_score_filename = utils.construct_filename(experiment_dir, "result", ".csv", timestamp, input_arguments.weight_tissue, "oob_score")
+        print(oob_score_filename)
+                
         # Check output file is exist or not
         if utils.check_exist_files([oob_score_filename]):
             raise Exception("See output above. Problems with specified directories")
@@ -282,25 +271,12 @@ if __name__ == '__main__':
                                                                                                                                    y_tran_df.values, 
                                                                                                                                    seed=load_configure['default_seed'],
                                                                                                                                    test_size=0.2,
-                                                                                                                                   groups=group_raw_df)
-   
-    supervised_params = {
-         'predictor': load_configure['model_params']['name'],
-         'n_estimators' :  load_configure['model_params']['n_estimators'],
-         'max_features' : load_configure['model_params']['max_features'],
-    }
-    
-    predictor = supervised_params['predictor']
-
-    model_list = {
-        'IRF_Classifier': model.IterativeRFClassifier,
-        'IRF_Regression': model.IterativeRFRegression
-    }
-    
+                                                                                                                                   groups=group_raw_df)    
     # hyperparameter to tune
     model_params = {
-        'n_estimators': supervised_params['n_estimators'][0],
-        'max_features': supervised_params['max_features'][0]        
+        'n_estimators': load_configure['model_params']['n_estimators'][0],
+        'max_features': load_configure['model_params']['max_features'][0],
+        'oob_score': load_configure['model_params']['oob_score']   
     }
     
     # number of iteration to test 
@@ -309,19 +285,21 @@ if __name__ == '__main__':
     }
      
     # Create the model
-    train_model = model_list[predictor](rseed=load_configure['default_seed'], **model_params)
+    train_model = model.IterativeRFRegression(rseed=load_configure['default_seed'], **model_params)
     
     logger.info("Computing out of bag score ... ")
-    oob_gridsearch = OOB_ParamGridSearch(n_jobs=1,
-                                         estimator=train_model,
-                                         param_grid=iteration_grid)
-
-
-    oob_gridsearch.fit(X_train= X_train_raw_df, 
-                       y_train=y_train_tran_df.flatten(), 
-                       model_output_dir=experiment_dir)
-    oob_gridsearch.cv_results.to_csv(oob_score_filename, sep="\t", index=False)
+#    oob_gridsearch = OOB_ParamGridSearch(n_jobs=1,
+#                                         estimator=train_model,
+#                                         param_grid=iteration_grid)
+#
+#
+#    oob_gridsearch.fit(X_train= X_train_raw_df, 
+#                       y_train=y_train_tran_df.flatten(), 
+#                       model_output_dir=experiment_dir)
+#    oob_gridsearch.cv_results.to_csv(oob_score_filename, sep="\t", index=False)
     
     
     totalTime = time.time() - startTime
-    logger.info('Finish Calculation, Total_time =', float(totalTime)/60, 'min.') 
+    logger.info("Computing done = {} min.".format(float(totalTime)/60))  
+    
+    
