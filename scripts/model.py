@@ -4,7 +4,7 @@ import pickle
 from abc import ABC, abstractmethod
 from irf.ensemble import RandomForestClassifier
 from irf.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression
+from sklearn import linear_model
 
 
 class GWAS_Model(ABC):
@@ -252,12 +252,18 @@ class PenalizedPRS(GWAS_Model):
     """
     A penalized Linear Regression implementation designed to hew closely to the skl defaults
     """
-    def __init__(self):
+    
+    def __init__(self, rseed, **model_kwargs):
         """
         Model initialization function
+        
+        :param seed: The random seed to use in training
+        :param model_kwargs: kwargs arguments to pass to iterative random forest classifier
         :return: None
         """
-        self.penalty = None
+
+        self.rseed = rseed
+        self.model_kwargs = model_kwargs
         self.model = None
 
     def fit(self, X_train, Y_train, penalty):
@@ -271,33 +277,16 @@ class PenalizedPRS(GWAS_Model):
         """
         
         if(penalty == 'l1'):
-            self.solver = 'liblinear'
-        
+            self.model = linear_model.Lasso(random_state=self.rseed, **self.model_kwarg)
         elif(penalty == 'elasticnet'):
-            self.solver = 'saga'
-            self.l1_ratio = 0.5
-        elif(penalty == 'l2' or penalty == 'none'):
-            self.solver = 'lbfgs'
+            self.modle = linear_model.ElasticNet(random_state=self.rseed, **self.model_kwarg)
+        elif(penalty == 'l2'):
+            self.model = linear_model.Ridge(random_state=self.rseed, **self.model_kwarg)
         else:
             raise RuntimeError("Unrecognized penalty type.")
-        self.clock.start()
-        self.model = LM.LogisticRegression(penalty = self.penalty, max_iter = 500,
-                                           solver = self.solver, l1_ratio = self.l1_ratio).fit(xdummies, y)
-        self.clock.stop()
-        self.covs = np.array([str(s) for s in xdummies.columns])
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
-
-        self.model = LinearRegression()
         self.model = self.model.fit(X_train, Y_train)
+        
         return self
 
     def save_model(self, out_path):
