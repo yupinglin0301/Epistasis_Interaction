@@ -4,8 +4,15 @@ import pandas as pd
 import utils
 import sys
 import yaml
-import dataset_model as dm
+import preprocessors as pp
+import sqlite3
+import pickle
+import gzip
+import datetime
+
 from pathlib import Path
+from sklearn.pipeline import make_pipeline
+
 
 
 """
@@ -13,16 +20,15 @@ Functions for remove out genetic relationship structure
 
 Usage:
     
-    nohup python regress_out_grm.py \
-      --phen_name "CWR_Total" \
-      --weight_tissue "Brain_Amygdala" >  /exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/Log/nohup.txt &
+    nohup python etl_for_phenotype.py \
+      --phen_name CWR_Total  >  /exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/Log/nohup.txt &
       
 Output:
 residual phenotype
 
 """
 
-def compute_expected_value(grm, y):
+def compute_expected_value(y, grm):
     """
     Compute the expected value using GBLUP (Genomic Best Linear Unbiased Prediction)
     """
@@ -54,6 +60,44 @@ def compute_expected_value(grm, y):
     
     return expected_value
 
+# Extraction
+def extract(phen_file, columns):
+    # Read the data file and extract specified columns
+    df = pd.read_csv(phen_file, usecols=columns, sep="\t")
+    return df
+
+# Transform
+def transform_data(df, columns, grm):
+    # Define a pipeline for data transformation
+    pipeline = make_pipeline(
+        pp.NumericalImputer(variables=columns)
+    )
+   
+    # Apply the transformation pipeline on the DataFrame
+    df = pipeline.fit_transform(df)
+    
+    # Compute the expected value using a function 'compute_expected_value' and the 'grm'
+    result = df.apply(lambda column: compute_expected_value(column, grm), axis=0)
+   
+    return result
+   
+# Loading
+def load_data(db_name, file, columns, grm):
+    # Extract the data
+    load_phen = extract(file, columns)
+    
+    # Transform the data
+    tran_phen = transform_data(load_phen, columns, grm)
+    
+    # Compute the residual by subtracting transformed data from the loaded data
+    residual_phen = load_phen - tran_phen
+    
+    # Connect to the database and load the residual phenotype data into a table named "Phenotype"
+    connection = sqlite3.connect(db_name)
+    cur = connection.cursor()
+    residual_phen.to_sql("Phenotype", connection, index=False, if_exists="replace")
+    cur.close()
+    connection.close()
 
 def process_args():
     """
@@ -62,22 +106,12 @@ def process_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--weight_tissue',
-        action="store",
-        help="Data directory where the phenotype and genotype matrix are stored."
-    )
-    
-    parser.add_argument(
         '--phen_name',
         action="store",
+        nargs='+',       
         help="Data directory where the phenotype and genotype matrix are stored."
     )
     
-    parser.add_argument(
-        '--work_dir',
-        action="store",
-        help="Data directory where the phenotype and genotype matrix are stored."
-    )
     
     args = parser.parse_args()
     return(args)
@@ -87,17 +121,20 @@ if __name__ == '__main__':
    
     # process command line arguments
     input_arguments = process_args()
+    timestamp = datetime.datetime.now().today().isoformat()
     # set up logging
-    logger = utils.logging_config(input_arguments.weight_tissue + input_arguments.phen_name)
+    logger = utils.logging_config("etl_for_phenotype", timestamp)
     # set up repo_directory
     repo_root = Path(__file__).resolve().parent.parent
+    # set up working directory
+    work_dir = repo_root / str("01_Preprocessing")
+    # set up result directory
+    save_dir = work_dir.joinpath("results")
     
     
     
     logger.info("Check if all files and directories exist ... ")
-    
     # loading configure file
-    work_dir = repo_root / str("01_Preprocessing")
     configure_file = work_dir.joinpath("config.yaml")
     try:
         with open(configure_file) as infile:
@@ -105,74 +142,27 @@ if __name__ == '__main__':
     except Exception:
             sys.stderr.write("Please specify valid yaml file.")
             sys.exit(1)
-            
-    save_dir = work_dir.joinpath("results")
+    
     if not utils.check_exist_directories(save_dir):
         raise Exception("The directory" + str(save_dir) + "not exist. Please double-check.")
     else:
         # Create experiment directory
-        experiment_dir = Path(save_dir, input_arguments.weight_tissue).resolve()
-        experiment_dir.mkdir(parents=True,  exist_ok=True)
-        output_filename = utils.construct_filename(experiment_dir, "imputed", ".csv", input_arguments.phen_name)
-        
+        output_filename = utils.construct_filename(save_dir, "residualed", ".db", timestamp, "phenotype")
         # Check output file is exist or not
         if utils.check_exist_files(output_filename):
             raise Exception("Results files exist already. Please double-check.")
-        
     
-    logger.info("Regressing out genetic correlation structure ... ")
+    data_dir = Path(load_configure['dataset']['data_dir'])
+    gene_cor_dir = data_dir / "genetic_correlation.pkl.gz"
     
-    GTEX_Dataset = dm.GTEX_raw_Dataset.from_config(config_file=load_configure, 
-                                                   weight_tissue=input_arguments.weight_tissue)
+    with gzip.open(gene_cor_dir, 'rb') as f:
+        gene_cor_matrix = pickle.load(f)  
     
-    # generate phenotype label
-    y_given_raw_df = GTEX_Dataset.generate_labels(input_arguments.phen_name)
-    # impute missing value with mean value
-    mean_value = y_given_raw_df[input_arguments.phen_name].mean()
-    y_given_raw_df[input_arguments.phen_name].fillna(mean_value, inplace=True)
-    y_raw = y_given_raw_df.values if isinstance(y_given_raw_df, pd.DataFrame) else y_given_raw_df
+     
+    logger.info("Conduct ETL pipeline ...")
+    load_data(db_name=output_filename, 
+              file=load_configure['dataset']['phentoype_dir'], 
+              grm=gene_cor_matrix, 
+              columns=input_arguments.phen_name)
     
-    # load GRM
-    grm = GTEX_Dataset.gene_cor_matrix 
-    # get expected_value 
-    expected_value = compute_expected_value(grm, y_raw)
-    # substract genetic relationship structure from phenotype
-    y_residual = y_raw.flatten() - expected_value
-    y_residual_df = pd.DataFrame(y_residual, columns=[input_arguments.phen_name])
-    # save residual phenotype file 
-    dm.GTEX_raw_Dataset.save(y_residual_df, output_filename)
-    
-  
-    
-
-    
-    
-    
-    
-    
-    
-    
-        
-    
-    
-    
-   
-    
-   
-    
-    
-
-    
-    
-   
-    
-    
-    
-    
-    
- 
-
-
-
-
-
+    logger.info("Save predictor feature to {}".format(output_filename))  
