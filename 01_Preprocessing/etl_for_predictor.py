@@ -9,6 +9,19 @@ import sys
 
 
 
+"""
+Functions for making pipline for feature engineering
+
+Usage:
+    
+    nohup python etl_for_predictor.py \
+      --weight_tissue "Brain_Amygdala" > /exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/Log/nohup.txt &
+      
+Output:
+Feature engineering pipeline for specific imputed brain tissue and environmental factors
+
+"""
+
 # Extraction
 def extract(data_set):
     """
@@ -50,19 +63,6 @@ def load_data(dataset, output_filename):
     transformed_data.to_csv(output_filename, sep="\t", index=False)
    
 
-
-"""
-Functions for making pipline for feature engineering
-
-Usage:
-    
-    nohup python etl_for_predictor.py \
-      --weight_tissue "Brain_Amygdala" > /exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/Log/nohup.txt &
-      
-Output:
-Feature engineering pipeline for specific imputed brain tissue and environmental factors
-
-"""
 def process_args():
     """
     Parse and format and command line arguments.
