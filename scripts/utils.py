@@ -1,14 +1,14 @@
 from pathlib import Path
 import logging
 import datetime
-import sys
-import yaml
 import os
 
 
 
 def check_exist_files(list_files):
-    """Check if each file within a list exists."""
+    """
+    Check if each file within a list exists.
+    """
 
     if not isinstance(list_files, list):
         list_files = [list_files]
@@ -21,7 +21,7 @@ def check_exist_files(list_files):
 
 def check_exist_directories(list_dirs):
     """
-    Check if each directory within a list exists
+    Check if each directory within a list exists.
     """
     if not isinstance(list_dirs, list):
             list_dirs = [list_dirs]
@@ -32,11 +32,12 @@ def check_exist_directories(list_dirs):
            check = False
     return check
 
-def logging_config(identifier):
-    """Set up logging function."""
+def logging_config(identifier, timestamp=datetime.datetime.now().today().isoformat()):
+    """
+    Set up logging function.
+    """
 
     # Create a unique filename using the current timestamp and identifier
-    timestamp = datetime.datetime.now().today().isoformat()
     timestamp = timestamp + "_" + identifier
     filename = f"logfile_{timestamp}.log"
     current_path = os.getcwd()
@@ -98,7 +99,9 @@ def construct_filename(output_dir,
 def write_configure_options(arguments,
                             output_dir,
                             file_descriptor):
-    """Save model hyperparameters/metadata to output directory."""
+    """
+    Save model hyperparameters/metadata to output directory.
+    """
 
     output_file = construct_filename(output_dir,
                                      file_descriptor,
@@ -110,6 +113,5 @@ def write_configure_options(arguments,
         with open(output_file, 'w') as f:
             f.write('+++++++++++ CONFIG INFORMATION +++++++++++')
             f.write('Summary Statistics:\n')
-            f.write('## Weight databse:\t' + str(arguments['weights_mdoel']) +
-                    '\n')
-            f.write('+++++++++++ CONFIG INFORMATION +++++++++++')
+            f.write('## Weight databse:\t' + str(arguments['weights_mdoel']) +'\n')
+            f.write('+++++++++++ CONFIG INFORMATION +++++++++++')          
