@@ -91,7 +91,7 @@ if __name__ == '__main__':
     input_arguments = process_args()
     # set up logging
     timestamp = datetime.datetime.now().today().isoformat()
-    logger = utils.logging_config(input_arguments.weight_tissue + "Predictor", timestamp)
+    logger = utils.logging_config(input_arguments.weight_tissue + "etl_for_predictor", timestamp)
 
     # set up repo_directory
     repo_root = Path(__file__).resolve().parent.parent
@@ -120,7 +120,6 @@ if __name__ == '__main__':
         experiment_dir.mkdir(parents=True,  exist_ok=True)
        
         output_filename = utils.construct_filename(experiment_dir, "feature", ".csv", timestamp, "predictor")
-        
         # Check output file is exist or not
         if utils.check_exist_files(output_filename):
             raise Exception("Results files exist already. Please double-check.")
