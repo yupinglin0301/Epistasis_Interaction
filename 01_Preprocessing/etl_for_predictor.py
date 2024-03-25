@@ -6,6 +6,7 @@ import utils
 import dataset_model as dm
 import yaml
 import sys
+import datetime
 
 
 
@@ -89,7 +90,8 @@ if __name__ == '__main__':
     # process command line arguments
     input_arguments = process_args()
     # set up logging
-    logger = utils.logging_config(input_arguments.weight_tissue + "Predictor")
+    timestamp = datetime.datetime.now().today().isoformat()
+    logger = utils.logging_config(input_arguments.weight_tissue + "Predictor", timestamp)
 
     # set up repo_directory
     repo_root = Path(__file__).resolve().parent.parent
@@ -116,7 +118,8 @@ if __name__ == '__main__':
         # Create experiment directory
         experiment_dir = save_dir / input_arguments.weight_tissue
         experiment_dir.mkdir(parents=True,  exist_ok=True)
-        output_filename = utils.construct_filename(experiment_dir, "feature", ".csv", "predictor")
+       
+        output_filename = utils.construct_filename(experiment_dir, "feature", ".csv", timestamp, "predictor")
         
         # Check output file is exist or not
         if utils.check_exist_files(output_filename):
