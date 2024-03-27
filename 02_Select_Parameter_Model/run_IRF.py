@@ -6,6 +6,7 @@ from RF_dataset_model import RF_DataModel, RIT_DataModel
 from sklearn.utils import resample
 
 
+
 import pandas as pd
 import model 
 import numpy as np
@@ -167,14 +168,14 @@ class OOB_ParamGridSearch(object):
         return all_rf_weights, cv_results
     
 
-def fit_and_score(rf_bootstrap,
-                  X_train,
-                  y_train,
-                  X_test,
-                  y_test,
-                  n_samples,
-                  all_rf_weights,
-                  **parameters):
+def run_RIT(rf_bootstrap,
+            X_train,
+            y_train,
+            X_test,
+            y_test,
+            n_samples,
+            all_rf_weights,
+            **parameters):
     
 
     
@@ -234,6 +235,12 @@ def process_args():
         action="store",
         help="Data directory where the phenotype and genotype matrix are stored."
     )
+    
+    parser.add_argument(
+        '--configure_file',
+        action="store",
+        help="Data directory where the phenotype and genotype matrix are stored."
+    )
 
     
     args = parser.parse_args()
@@ -255,7 +262,7 @@ if __name__ == '__main__':
     save_dir = Path.joinpath(work_dir, "results")
    
     # loading configure file
-    configure_file = Path(input_arguments.work_dir, "model_configure/IRF_RF.yaml")
+    configure_file = Path(input_arguments.work_dir, "model_configure", input_arguments.configure_file)
     try:
         with open(configure_file) as infile:
             load_configure = yaml.safe_load(infile)
@@ -327,7 +334,7 @@ if __name__ == '__main__':
     
     # number of iteration to test 
     iteration_grid = {
-        'K': [1, 2, 3, 4, 5]
+        'K': [1,2,3]
     }
      
     # Create the model
@@ -335,7 +342,7 @@ if __name__ == '__main__':
     
     
     logger.info("Find the random forest from the iteration with lowest OOB error score ... ")
-    oob_gridsearch = OOB_ParamGridSearch(n_jobs=2,
+    oob_gridsearch = OOB_ParamGridSearch(n_jobs=1,
                                          estimator=train_model,
                                          param_grid=iteration_grid)
 
@@ -355,12 +362,19 @@ if __name__ == '__main__':
     n_samples = ceil(rit_params['propn_n_samples']* X_train_raw_df.shape[0])
 
     all_rit_bootstrap_output = {}
-    output = joblib.Parallel(n_jobs=3)(
-        joblib.delayed(fit_and_score)(deepcopy(train_model), X_train_raw_df, y_train_tran_df.flatten(), X_test_raw_df, y_test_tran_df.flatten(), n_samples, all_rf_weights, **rit_params)
+    output = joblib.Parallel(n_jobs=2)(
+        joblib.delayed(run_RIT)(deepcopy(train_model), 
+                                X_train_raw_df, 
+                                y_train_tran_df.flatten(), 
+                                X_test_raw_df, 
+                                y_test_tran_df.flatten(), 
+                                n_samples, 
+                                all_rf_weights, 
+                                **rit_params)
         for _ in range(0, rit_params['n_bootstrapped'])) 
 
-    for i, parameters in enumerate(range(0, rit_params['n_bootstrapped'])):
-            all_rit_bootstrap_output['rf_bootstrap{}'.format(parameters)] = output[i]
+    for i in (range(0, rit_params['n_bootstrapped'])):
+            all_rit_bootstrap_output['rf_bootstrap{}'.format(i)] = output[i]
 
     
     logger.info("Compute stability score for each interaction term ...")
