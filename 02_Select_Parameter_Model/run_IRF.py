@@ -252,8 +252,10 @@ if __name__ == '__main__':
     
     # process command line arguments
     input_arguments = process_args()
+    
+    timestamp = datetime.datetime.now().today().isoformat()
     # set up logging
-    logger = utils.logging_config(input_arguments.weight_tissue + input_arguments.phen_name + "run_IRF")
+    logger = utils.logging_config(input_arguments.weight_tissue + input_arguments.phen_name + "run_IRF", timestamp)
      # set up directory
     repo_root = Path(__file__).resolve().parent.parent
     # set up working directory
