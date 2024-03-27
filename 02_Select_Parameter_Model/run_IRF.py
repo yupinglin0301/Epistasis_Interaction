@@ -28,7 +28,8 @@ Usage:
     python run_IRF.py \
       --work_dir "/exeh_4/yuping/Epistasis_Interaction/02_Select_Parameter_Model" \
       --weight_tissue "Brain_Amygdala" \
-      --phen_name  "CWR_Total" > /exeh_4/yuping/Epistasis_Interaction/02_Select_Parameter_Model/Log/nohup.txt &
+      --phen_name  "CWR_Total" \
+      --configure_file IRF_RF_test.yaml > /exeh_4/yuping/Epistasis_Interaction/02_Select_Parameter_Model/Log/nohup.txt &
           
 Output:
 out-of bag (OOB) error score for each iteration and interaction term.
@@ -265,127 +266,31 @@ if __name__ == '__main__':
    
     # loading configure file
     configure_file = Path(input_arguments.work_dir, "model_configure", input_arguments.configure_file)
+    
     try:
         with open(configure_file) as infile:
             load_configure = yaml.safe_load(infile)
     except Exception:
             sys.stderr.write("Please specify valid yaml file.")
             sys.exit(1)
-            
-  
+    
+    
     logger.info("Check if all files and directories exist ... ")
    
-    transformed_data_dir = Path(load_configure['dataset']['preprocess_data_dir']) / input_arguments.weight_tissue 
-    if not utils.check_exist_directories([save_dir, transformed_data_dir]):
+    if not utils.check_exist_directories([save_dir]):
         raise Exception("See output above. Problems with specified directories")
     else:
         # Create experiment directory
         experiment_dir = save_dir / input_arguments.weight_tissue
         experiment_dir.mkdir(parents=True,  exist_ok=True)
         
-        timestamp = datetime.datetime.now().today().isoformat()
-        oob_score_filename = utils.construct_filename(experiment_dir, "result", ".csv", timestamp, input_arguments.weight_tissue, "oob_score")
-        interaction_result_filename = utils.construct_filename(experiment_dir, "result",".csv",  timestamp, input_arguments.weight_tissue, "interaction")
+       
+        oob_score_filename = utils.construct_filename(experiment_dir, "result", ".csv", 
+                                                      timestamp, input_arguments.weight_tissue, input_arguments.phen_name, "oob_score")
+        interaction_result_filename = utils.construct_filename(experiment_dir, "result",".csv",  
+                                                               timestamp, input_arguments.weight_tissue, input_arguments.phen_name, "interaction")
       
         # Check output file is exist or not
         if utils.check_exist_files([oob_score_filename, interaction_result_filename]):
             raise Exception("See output above. Problems with specified directories")
-        
-    
-    logger.info("Prepareing feature ... ") 
-    GTex_raw_dataset = dm.GTEX_raw_Dataset.from_config(config_file=load_configure, 
-                                                       weight_tissue=input_arguments.weight_tissue)
-    # generate gene expression dataset
-    X_raw_df = GTex_raw_dataset.all_gen_df
-    
-    # generate phenotype label
-    y_tran_df_dir = transformed_data_dir / (input_arguments.phen_name + "_imputed.csv")
-    y_tran_df = GTex_raw_dataset.load(y_tran_df_dir)
-    
-    # generate group label
-    group_raw_df = pd.read_csv(Path(load_configure['dataset']['group_dir']))
- 
-
-    
-    # Set the random state for reproducibility
-    np.random.seed(load_configure['default_seed'])
-    
-    logger.info("Train-Test Splitting ... ")
-    X_train_raw_df, X_test_raw_df, y_train_tran_df, y_test_tran_df, train_index, test_index = GTex_raw_dataset.group_shuffle_split(X_raw_df.values, 
-                                                                                                                                   y_tran_df.values, 
-                                                                                                                                   seed=load_configure['default_seed'],
-                                                                                                                                   test_size=0.2,
-                                                                                                                                   groups=group_raw_df)     
-    
-    
-    # hyperparameter to for RF
-    model_params = {
-        'n_estimators': load_configure['model_params']['n_estimators'][0],
-        'max_features': load_configure['model_params']['max_features'][0],
-        'oob_score': load_configure['model_params']['oob_score'],  
-    }
-    
-    # hyperparameter to for RIT
-    rit_params = {
-        'n_intersection_tree' :  load_configure['model_params']['n_intersection_tree'][0],
-        'max_depth' : load_configure['model_params']['max_depth'][0],
-        'num_splits' : load_configure['model_params']['num_splits'][0],
-        'n_bootstrapped': load_configure['model_params']['n_bootstrapped'][0],
-        'propn_n_samples' : load_configure['model_params']['propn_n_samples'][0]
-    }
-    
-    # number of iteration to test 
-    iteration_grid = {
-        'K': [1,2,3]
-    }
-     
-    # Create the model
-    train_model = model.IterativeRFRegression(rseed=load_configure['default_seed'], **model_params)
-    
-    
-    logger.info("Find the random forest from the iteration with lowest OOB error score ... ")
-    oob_gridsearch = OOB_ParamGridSearch(n_jobs=1,
-                                         estimator=train_model,
-                                         param_grid=iteration_grid)
-
-    oob_gridsearch.fit(X_train=X_train_raw_df, y_train=y_train_tran_df.flatten())
-    # get iteration of feature weights and cv_results
-    all_rf_weights, cv_results = oob_gridsearch.extract_oob_result(oob_gridsearch.output_array, 
-                                                                   oob_gridsearch.params_iterable)
-
-    # output oob_error_score result
-    cv_results.to_csv(oob_score_filename, sep="\t", index=False)
-    
-    
-    
-    logger.info("Run Random Intersection Tree ...")
-    # Convert the bootstrap resampling proportion to the number
-    # of rows to resample from the training data
-    n_samples = ceil(rit_params['propn_n_samples']* X_train_raw_df.shape[0])
-
-    all_rit_bootstrap_output = {}
-    output = joblib.Parallel(n_jobs=2)(
-        joblib.delayed(run_RIT)(deepcopy(train_model), 
-                                X_train_raw_df, 
-                                y_train_tran_df.flatten(), 
-                                X_test_raw_df, 
-                                y_test_tran_df.flatten(), 
-                                n_samples, 
-                                all_rf_weights, 
-                                **rit_params)
-        for _ in range(0, rit_params['n_bootstrapped'])) 
-
-    for i in (range(0, rit_params['n_bootstrapped'])):
-            all_rit_bootstrap_output['rf_bootstrap{}'.format(i)] = output[i]
-
-    
-    logger.info("Compute stability score for each interaction term ...")
-    stability_score = RIT_DataModel().get_stability_score(all_rit_bootstrap_output=all_rit_bootstrap_output)  
-    
-    # output oob_error_score result
-    stability_score_df = pd.DataFrame(stability_score.items(), columns=["Pattern", "Value"])
-    stability_score_df.to_csv(interaction_result_filename, sep="\t", index=False)
-    
-    
-    totalTime = time.time() - startTime
-    logger.info("Computing done = {} min.".format(float(totalTime)/60))  
+            
