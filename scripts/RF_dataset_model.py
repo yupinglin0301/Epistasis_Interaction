@@ -346,28 +346,29 @@ class RIT_DataModel(object):
         return all_rit_tree_outputs
 
 
-    def rit_interactions(self, all_rit_tree_data):
+    def rit_interactions(self, all_rit_tree_data, column_name):
 
         interactions = []
         # loop through all the random intersection tree
         for tree_data in all_rit_tree_data.values():
             intersected_values = tree_data['rit_intersected_values']
             # loop through all found interactions
-            for value in intersected_values:
-                if len(value) != 0:
-                    intersection_str = "_".join(map(str, value))
+            for value_list in intersected_values:
+                values = [key for key, value in column_name.items() if value in value_list]
+                if len(values) > 1:
+                    intersection_str = "_".join(map(str, values))
                     interactions.append(intersection_str)
 
         return(set(interactions))
 
-    def get_stability_score(self, all_rit_bootstrap_output):
+    def get_stability_score(self, all_rit_bootstrap_output, column_name):
 
 
         bootstrap_interact = []
         B = len(all_rit_bootstrap_output)
 
         for b in range(B):
-            rit_counts = self.rit_interactions(all_rit_bootstrap_output['rf_bootstrap{}'.format(b)])
+            rit_counts = self.rit_interactions(all_rit_bootstrap_output['rf_bootstrap{}'.format(b)], column_name)
             bootstrap_interact.append(list(rit_counts))
 
         all_rit_interactions = [item for sublist in bootstrap_interact for item in sublist]
