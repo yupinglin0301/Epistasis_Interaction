@@ -78,8 +78,11 @@ def transform_data(df, columns, grm):
     
     # Compute the expected value using a function 'compute_expected_value' and the 'grm'
     result = df.apply(lambda column: compute_expected_value(column, grm), axis=0)
-   
-    return result
+    
+    # Compute the residual by subtracting transformed data from the expected_value
+    residual_phen = df - result
+    
+    return residual_phen
    
 # Loading
 def load_data(db_name, file, columns, grm):
@@ -89,13 +92,10 @@ def load_data(db_name, file, columns, grm):
     # Transform the data
     tran_phen = transform_data(load_phen, columns, grm)
     
-    # Compute the residual by subtracting transformed data from the loaded data
-    residual_phen = load_phen - tran_phen
-    
     # Connect to the database and load the residual phenotype data into a table named "Phenotype"
     connection = sqlite3.connect(db_name)
     cur = connection.cursor()
-    residual_phen.to_sql("Phenotype", connection, index=False, if_exists="replace")
+    tran_phen.to_sql("Phenotype", connection, index=False, if_exists="replace")
     cur.close()
     connection.close()
 
@@ -159,7 +159,7 @@ if __name__ == '__main__':
         gene_cor_matrix = pickle.load(f)  
     
      
-    logger.info("Conduct ETL pipeline ...")
+    logger.info("Conduct ETL pipeline for format {}...".format(input_arguments.phen_name))
     load_data(db_name=output_filename, 
               file=load_configure['dataset']['phentoype_dir'], 
               grm=gene_cor_matrix, 
