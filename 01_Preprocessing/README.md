@@ -1,34 +1,57 @@
-#  Data Preprocessing and Feature Engineering Pipeline for genetic and environment data
+#  Preprocessing 
 
-In this module, we have two goal : 
-- Apply feature engineering techniques, which encompass tasks such as imputing missing values, generating new features, encoding features from raw data and normalized gene expression data.(Step 0)
-- Regress out potential genetic relationship structure.(Step 1)
+In this module, we construct ETL pipelie for both phentype and predictor and we later use the processed file in `Select_Paramter_Model`
 
 
 ## Scripts
-### Step 0 : Feature engineering on gene expression and environmental variables
-```
-Functions for making pipline for feature engineering
+### Step 0 : ETL pipeline for phenotype
 
+```
 Usage:
     
-    python run_making_pipline.py \
-      --work_dir "/exeh_4/yuping/Epistasis_Interaction/01_Preprocessing" \
-      --weight_tissue "Brain_Amygdala" \
-      --normalized  
+    python etl_for_phenotype.py \
+      --phen_name CWR_Total 
+Output:
+residual phenotype for specifice phenotype store in sqlite format
+```
+
+**Notes:** 
++ The ETL pipeline in the transform function has two steps: NumericalImputer and compute_expected_value. Here are the details of each step:
+
+  + NumericalImputer: This transformer is responsible for imputing missing values in the dataset. It utilizes the median imputation method, where the median value of each numerical feature is used to fill in the missing data. By using the median, we aim to impute missing values in a way that minimally affects the overall distribution of the data.
+
+  + compute_expected_value: This step involves regressing out the family structure from the dataset. The precise details of this process can be found in the ETL.ipynb notebook and the "Additional Note" section. This step helps remove any potential confounding effects related to family structure, enabling a more accurate analysis of brain tissue and environmental factors.
+
++ For detail can refer to [ETL.ipynb](ETL.ipynb) and `Additional Note`.
+
+### Step 1 : ETL pipeline for predictor
+```
+Usage:
+    
+    python etl_for_predictor.py \
+      --weight_tissue "Brain_Amygdala" 
       
 Output:
-Feature engineering pipeline for specific imputed brain tissue and environmental factors(e.g. feature_eng_Brain_Amygdala_output.pkl)
+normalized specific imputed brain tissue and environmental factors
 ```
 **Notes:** 
-+ If the "normalized" parameter is included in the arguments, the script will perform normalization on the gene expression features.
-+ if the "normalized" parameter is not provided, the script will proceed with imputing missing values and encoding categorical variables in the environmental features.
+
++ The ETL pipeline in the transform function includes several steps to normalize and process the data. Here are the details of each step:
+
+  + `NormalizeDataTransformer``: This transformer applies Min-Max normalization to the gene expression feature. Min-Max normalization scales the values of the gene expression feature to a specific range (e.g., between 0 and 1) to ensure consistency and facilitate further analysis.
+
+  + `CategoricalEncoder_Education``: This transformer handles the education-related categorical variables. It employs the mode imputation technique to fill in missing values. Additionally, it creates a new variable called Total_Education by summing up the FatherEducation and MotherEducation variables. The Total_Education variable is then categorized based on whether it is above or below the median value of the average of FatherEducation and MotherEducation. Values above the median are encoded as 1, while values below the median are encoded as 0.
+
+  + `CategoricalEncoder_Income``: This transformer encodes the income variable, which is initially provided as a string. It assigns numerical values to different income categories using a predefined mapping. For example, the income category "<1000" is encoded as 0, "10001~50000" as 1, and ">50001" as 2.
 
 
-### Step 1 : Regress out potential genetic relationship structure
-The script is designed to utilize the following equation in order to construct Genomic Best Linear Unbiased Prediction (GBLUP), taking into consideration the influence of genetic correlation structure and subtracting the genetic relationship structure from the phenotype.
++ For detail can refer to [ETL.ipynb](ETL.ipynb).
 
 
+  
+
+## Additional Note for remove out family structure
+ Genomic Best Linear Unbiased Prediction (GBLUP), taking into consideration the influence of genetic correlation structure and subtracting the genetic relationship structure from the phenotype.
 
 
 $y=1_n \mu+\sum_i W q_i+e$
@@ -44,19 +67,6 @@ $\sum_i W q_i$ is equal to $g$
 GBLUP solutions:
 
 $\left[\begin{array}{l}\hat{\mu} \\ \hat{g}\end{array}\right]=\left[\begin{array}{cc}1_n^{\prime} 1_n & \mathbf{1}_n^{\prime} Z \\ Z^{\prime} 1_n & Z^{\prime} Z+G^{-1} \frac{\sigma_e^2}{\sigma_g^2}\end{array}\right]^{-1}\left[\begin{array}{l}1_n^{\prime} y \\ Z^{\prime} y\end{array}\right]$
-
-
-```
-Usage:
-    
-    python regress_out_grm.py \
-      --phen_name "CWR_Total" \
-      --weight_tissue "Brain_Amygdala" 
-      
-Output:
-residual phenotype(e.g. CCR_Total_imputed.csv)
-
-```
 
 ```
 R script for BLUP
