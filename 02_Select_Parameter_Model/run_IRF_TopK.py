@@ -1,10 +1,7 @@
 from pathlib import Path
-from sklearn.model_selection import ParameterGrid
 from copy import deepcopy
 from math import ceil
-from RF_dataset_model import RF_DataModel, RIT_DataModel
-from sklearn.utils import resample
-from select_parameter_utils import write_configure_run_IRF, group_shuffle_split, get_rit_counts
+from select_parameter_utils import write_configure_run_IRF, group_shuffle_split, run_RIT, rit_interactions, OOB_Search
 
 
 import pandas as pd
@@ -39,190 +36,6 @@ out-of bag (OOB) error score for each iteration and interaction term.
 """
 
 
-
-class OOB_ParamGridSearch(object):
-    def __init__(self, 
-                 estimator, 
-                 param_grid,
-                 n_jobs=-1):
-        """
-        Initializes the OOB_ParamGridSearch class.
-
-       
-        :param estimator (object): The base estimator to be used.
-        :param param_grid (dict or list of dicts): The parameter grid to search over.
-        :param n_jobs (int, optional): The number of jobs to run in parallel. Defaults to -1.
-        """
-        self.n_jobs = n_jobs
-        self.estimator = estimator
-        self.param_grid = param_grid
-
-    def fit(self, 
-            X_train, 
-            y_train):
-        """
-        Fits the model with the given training data using the parameter grid search.
-
-        :param X_train (array-like): The input features for training.
-        :param y_train (array-like): The target values for training.
-
-        :return self (object): Returns self.
-        """
-        self.params_iterable = list(ParameterGrid(self.param_grid))
-        parallel = joblib.Parallel(self.n_jobs)
-
-        output = parallel(
-            joblib.delayed(self.fit_and_score)(deepcopy(self.estimator), X_train, y_train, parameters)
-            for parameters in self.params_iterable)
-
-        self.output_array = np.array(output)
-        
-
-        return self
-
-    def fit_and_score(self, 
-                      estimator, 
-                      X_train, 
-                      y_train,
-                      parameters):
-        """
-        Fits the model and calculates the out-of-bag (OOB) error score.
-
-        :param estimator (object): The estimator object.
-        :param X_train (array-like): The input features for training.
-        :param y_train (array-like): The target values for training.
-        :param parameters (dict): The hyperparameters to use for fitting the model.
-
-        :return oob_error (float): The calculated out-of-bag error score.
-        """
-        
-        
-        # Initialize dictionary of rf weights
-        all_rf_weights = {}
-        initial_weights = None
-        # Loop through number of iteration
-        for k in range(int(parameters['K'])):
-           
-            if k == 0:
-                # Initially feature weights are None
-                feature_importances = initial_weights
-
-                # Update the dictionary of all our RF weights
-                all_rf_weights["rf_weight{}".format(k)] = feature_importances
-
-                # fit the model
-                estimator.fit(X_train=X_train,
-                              Y_train=y_train,
-                              feature_weight=None)
-
-                # Update feature weights using the
-                # new feature importance score
-                feature_importances = getattr(estimator,"model").feature_importances_
-
-                # Load the weights for the next iteration
-                all_rf_weights["rf_weight{}".format(k + 1)] = feature_importances
-
-            else:
-
-                # fit weighted RF
-                # Use the weights from the previous iteration
-                estimator.fit(
-                    X_train=X_train,
-                    Y_train=y_train,
-                    feature_weight=all_rf_weights["rf_weight{}".format(k)])
-
-                # Update feature weights using the
-                # new feature importance score
-                feature_importances = getattr(estimator, "model").feature_importances_
-
-                # Load the weights for the next iteration
-                all_rf_weights["rf_weight{}".format(k + 1)] = feature_importances
-        
-     
-        oob_error = 1 - estimator.model.oob_score_
-        return oob_error, all_rf_weights
-
-    @staticmethod
-    def extract_oob_result(output_array, params_iterable):
-        """
-        Extracts the out-of-bag (OOB) results from an output array and a params iterable.
-        
-        :param output_array (list): List of output values.
-        :param params_iterable (list): List of parameter values.
-
-        :return  A tuple containing the list of RF weights and a DataFrame with OOB error scores and parameters.
-        """
-        # Extract OOB error scores from output array
-        oob_error_score = [i[0] for i in output_array]
-
-        # Find the index of the best OOB error score
-        best_index = np.argmin(oob_error_score)
-        best_param_ = params_iterable[best_index]
-
-        # Create a DataFrame with OOB error scores and parameters
-        cv_results = pd.DataFrame(oob_error_score, columns=['OOB_Error_Score'])
-        df_params = pd.DataFrame(params_iterable)
-        cv_results = pd.concat([cv_results, df_params], axis=1)
-        cv_results["params"] = params_iterable
-        cv_results = (cv_results.
-                      sort_values(['OOB_Error_Score'], ascending=True).
-                      reset_index(drop=True))
-        
-        if len(oob_error_score) ==1:
-            # Extract RF weights for the best parameter value when only have one parameter
-            all_rf_weights = [j[1]["rf_weight{}".format(best_param_['K'])] for i, j in enumerate(output_array)]
-        else:
-            # Extract RF weights for the best parameter value
-            all_rf_weights = [j[1]["rf_weight{}".format(best_param_['K'])] for i, j in enumerate(output_array) if(i+1)==best_param_['K']]
-
-        return all_rf_weights, cv_results
-    
-
-def run_RIT(rf_bootstrap,
-            X_train,
-            y_train,
-            X_test,
-            y_test,
-            n_samples,
-            all_rf_weights,
-            **parameters):
-    
-  
-    
-    X_train_rsmpl, y_rsmpl = resample(X_train, 
-                                      y_train, 
-                                      n_samples=n_samples)
-    
-    # Set up the weighted random forest
-    # Using the weight from the (K-1)th iteration
-    rf_bootstrap.fit(
-            X_train=X_train_rsmpl,
-            Y_train=y_rsmpl,
-            feature_weight=all_rf_weights
-    )  
-    
-    # All RF tree data
-    all_rf_tree_data = RF_DataModel().get_rf_tree_data(
-            rf=rf_bootstrap.model,
-            X_train=X_train_rsmpl,
-            X_test=X_test,
-            y_test=y_test
-    )
-
-    # Run RIT on the interaction rule set
-    all_rit_tree_data = RIT_DataModel().get_rit_tree_data(
-            all_rf_tree_data=all_rf_tree_data,
-            bin_class_type=y_test,
-            M=parameters['n_intersection_tree'],  # number of RIT 
-            max_depth=parameters['max_depth'], # Tree depth for RIT
-            noisy_split=False,
-            num_splits=parameters['num_splits']  # number of children to add
-    ) 
- 
-    return all_rit_tree_data
-
-
-
 def select_TopK(feature, all_rf_weights, X_train_raw_df, train_model, logger):
        
         KTop = [100, 500, 1000, 2366]
@@ -242,9 +55,9 @@ def select_TopK(feature, all_rf_weights, X_train_raw_df, train_model, logger):
             new_Xtrain = sorted_X_train[:,0:Top]
             # Using OOB_ParamGridSearch function 
             # get oob error score for Top K feature combination 
-            oob_gridsearch = OOB_ParamGridSearch(n_jobs=3,
-                                                 estimator=train_model,
-                                                 param_grid={'K': [3]})
+            oob_gridsearch = OOB_Search(n_jobs=3,
+                                        estimator=train_model,
+                                        param_grid={'K': [3]})
 
             oob_gridsearch.fit(X_train=new_Xtrain, 
                                y_train=y_train_tran_df.flatten())
@@ -359,7 +172,7 @@ if __name__ == '__main__':
         experiment_dir.mkdir(parents=True,  exist_ok=True)
         
         oob_score_filename = utils.construct_filename(experiment_dir, "result", ".csv", timestamp, input_arguments.weight_tissue, input_arguments.phen_name, "oob_score")
-        interaction_filename = utils.construct_filename(experiment_dir, "result",".csv",  timestamp, input_arguments.weight_tissue, input_arguments.phen_name, "interaction")
+        interaction_filename = utils.construct_filename(experiment_dir, "result",".csv",  timestamp, input_arguments.weight_tissue, input_arguments.phen_name, "interaction", "run_IRF_TopK")
         # Check output file is exist or not
         if utils.check_exist_files([oob_score_filename, interaction_filename]):
             raise Exception("See output above. Problems with specified directories")
@@ -401,9 +214,9 @@ if __name__ == '__main__':
     logger.info("Find the random forest from the iteration with lowest OOB error score ... ")
     # Create the model
     train_model = model.IterativeRFRegression(rseed=load_configure['default_seed'], **model_params)
-    oob_gridsearch = OOB_ParamGridSearch(n_jobs=1,
-                                         estimator=train_model,
-                                         param_grid={'K': [1]}) # number of iteration to test 
+    oob_gridsearch = OOB_Search(n_jobs=1,
+                                estimator=train_model,
+                                param_grid={'K': [1]}) # number of iteration to test 
 
     oob_gridsearch.fit(X_train=X_train_raw_df, y_train=y_train_tran_df.flatten())
     # get iteration of feature weights and cv_results
@@ -413,13 +226,11 @@ if __name__ == '__main__':
     logger.info("Select Top K feature ... ")
     # select Top K feature
     Top_feature_weight, Top_feature, Top_Xtrain = select_TopK(pred_df.columns.to_list(), 
-                                                          all_rf_weights, 
-                                                          X_train_raw_df, 
-                                                          train_model, 
-                                                          logger) 
+                                                              all_rf_weights, 
+                                                              X_train_raw_df, 
+                                                              train_model, 
+                                                              logger) 
     logger.info("Select Top {}  feature".format(len(Top_feature))) 
-        
-    
     
     
     
@@ -429,7 +240,7 @@ if __name__ == '__main__':
     n_samples = ceil(rit_params['propn_n_samples']* X_train_raw_df.shape[0])
 
     all_rit_bootstrap_output = {}
-    output = joblib.Parallel(n_jobs=3)(
+    output = joblib.Parallel(n_jobs=5)(
         joblib.delayed(run_RIT)(deepcopy(train_model), 
                                 Top_Xtrain, 
                                 y_train_tran_df.flatten(), 
@@ -441,28 +252,27 @@ if __name__ == '__main__':
         for b in range(0, rit_params['n_bootstrapped'])) 
     for i in (range(0,rit_params['n_bootstrapped'])):
           all_rit_bootstrap_output['rf_bootstrap{}'.format(i)] = output[i]
-     
+          
     
     logger.info("Compute stability score for each interaction term ...")
     nub_feature = list(range(len(Top_feature)))
     feature_dict = {Top_feature[i]: nub_feature[i] for i in range(len(Top_feature))}     
-    # get each bootstrapp sample's interaction term
-    rit_counts = joblib.Parallel(n_jobs=3)(
-            joblib.delayed(get_rit_counts)(b, 
-                                           all_rit_bootstrap_output, 
-                                           feature_dict)
-            for b in range(rit_params['n_bootstrapped']))   
-    all_rit_interactions = [item for sublist in rit_counts for item in sublist]
+    
+    bootstrap_interact = []
+    with joblib.Parallel(n_jobs=5) as parallel:
+        # Loop over the data and make multiple parallel calls
+        for b in range(rit_params['n_bootstrapped']):
+            # Execute the parallel function using the context manager
+            processed_results = parallel(joblib.delayed(rit_interactions)(tree_data, 
+                                                                          feature_dict)
+                                        for tree_data in all_rit_bootstrap_output['rf_bootstrap{}'.format(b)].values())
+            
+            bootstrap_interact.append(set(processed_results))
+    
+    all_rit_interactions = [item for sublist in (bootstrap_interact) for item in sublist if item is not None]
     stability_score = {m: all_rit_interactions.count(m) / rit_params['n_bootstrapped'] for m in all_rit_interactions}
     
-    
-    #logger.info("Compute stability score for each interaction term ...")
-    #nub_feature = list(range(len(Top_feature)))
-    #feature_dict = {Top_feature[i]: nub_feature[i] for i in range(len(Top_feature))}
-    #stability_score = RIT_DataModel().get_stability_score(all_rit_bootstrap_output=all_rit_bootstrap_output,
-    #                                                      column_name=feature_dict)
-    
-    # output oob_error_score result
+    # output stability_score result
     stability_score_df = pd.DataFrame(stability_score.items(), columns=["Pattern", "Value"])
     stability_score_df.to_csv(interaction_filename, sep="\t", index=False)
     
