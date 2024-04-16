@@ -43,7 +43,6 @@ def process_args():
     """
 
     parser = argparse.ArgumentParser()
-
     parser.add_argument(
         '--weight_tissue',
         action="store",
