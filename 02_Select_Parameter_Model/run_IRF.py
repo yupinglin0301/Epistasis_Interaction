@@ -5,6 +5,7 @@ from math import ceil
 from RF_dataset_model import RF_DataModel, RIT_DataModel
 from sklearn.utils import resample
 from select_parameter_utils import write_configure_run_IRF, group_shuffle_split
+from multiprocessing import Pool, Manager
 
 
 import pandas as pd
@@ -26,13 +27,13 @@ Functions for conducting iterative random forest model
 
 Usage:
     
-    python run_IRF.py \
+    nohup python run_IRF.py \
       --work_dir "/exeh_4/yuping/Epistasis_Interaction/02_Select_Parameter_Model" \
       --weight_tissue "Brain_Amygdala" \
       --phen_name  "CWR_Total" \
       --phen_df_name  "2024-03-27T11:03:04.174838_phenotype_residualed.db"   \
       --pred_df_name "2024-03-25T11:01:20.810692_predictor_feature.csv" \
-      --configure_file IRF_RF_test.yaml > /exeh_4/yuping/Epistasis_Interaction/02_Select_Parameter_Model/Log/nohup2.txt &
+      --configure_file IRF_RF_test.yaml > /exeh_4/yuping/Epistasis_Interaction/02_Select_Parameter_Model/Log/nohup.txt &
           
 Output:
 out-of bag (OOB) error score for each iteration and interaction term.
@@ -178,49 +179,49 @@ class OOB_ParamGridSearch(object):
         return all_rf_weights, cv_results
     
 
-def run_RIT(rf_bootstrap,
-            X_train,
-            y_train,
-            X_test,
-            y_test,
-            n_samples,
-            all_rf_weights,
-            **parameters):
+def run_rit(b, 
+            n_samples, 
+            X_train, 
+            y_train, 
+            all_rf_weights, 
+            X_test, 
+            y_test, 
+            rit_params, 
+            train_model):
     
-    
-    
-    X_train_rsmpl, y_rsmpl = resample(X_train, 
-                                      y_train, 
-                                      n_samples=n_samples)
-    
+    # Resample the data
+    X_train_rsmpl, y_rsmpl = resample(X_train, y_train, n_samples=n_samples)
+
+    rf_bootstrap = deepcopy(train_model)
     # Set up the weighted random forest
     # Using the weight from the (K-1)th iteration
     rf_bootstrap.fit(
-            X_train=X_train_rsmpl,
-            Y_train=y_rsmpl,
-            feature_weight=all_rf_weights[0]
-    )  
-    
+        X_train=X_train_rsmpl,
+        Y_train=y_rsmpl,
+        feature_weight=all_rf_weights[0]
+    )
+
     # All RF tree data
     all_rf_tree_data = RF_DataModel().get_rf_tree_data(
-            rf=rf_bootstrap.model,
-            X_train=X_train_rsmpl,
-            X_test=X_test,
-            y_test=y_test
+        rf=rf_bootstrap.model,
+        X_train=X_train_rsmpl,
+        X_test=X_test,
+        y_test=y_test
     )
 
     # Run RIT on the interaction rule set
     all_rit_tree_data = RIT_DataModel().get_rit_tree_data(
-            all_rf_tree_data=all_rf_tree_data,
-            bin_class_type=y_test,
-            M=parameters['n_intersection_tree'],  # number of RIT 
-            max_depth=parameters['max_depth'], # Tree depth for RIT
-            noisy_split=False,
-            num_splits=parameters['num_splits']  # number of children to add
-    ) 
- 
-    return all_rit_tree_data
+        all_rf_tree_data=all_rf_tree_data,
+        bin_class_type=y_test,
+        M=rit_params['n_intersection_tree'],  # number of RIT 
+        max_depth=rit_params['max_depth'],  # Tree depth for RIT
+        noisy_split=False,
+        num_splits=rit_params['num_splits'] # number of children to add
+    )
 
+    # Update the rf bootstrap output dictionary for rit object
+    all_rit_bootstrap_output['rf_bootstrap{}'.format(b)] = all_rit_tree_data
+    
 
 def process_args():
     """
@@ -306,13 +307,7 @@ if __name__ == '__main__':
         'propn_n_samples' : load_configure['model_params']['propn_n_samples'][0]
     }
     
-    # number of iteration to test 
-    iteration_grid = {
-        'K': [3]
-    }
-    
-    
-    
+
     logger.info("Check if all files and directories exist ... ")
     if not utils.check_exist_directories([save_dir]):
         raise Exception("See output above. Problems with specified directories")
@@ -367,8 +362,8 @@ if __name__ == '__main__':
     train_model = model.IterativeRFRegression(rseed=load_configure['default_seed'], **model_params)
     oob_gridsearch = OOB_ParamGridSearch(n_jobs=1,
                                          estimator=train_model,
-                                         param_grid=iteration_grid)
-
+                                         param_grid={'K':[3]})
+    
     oob_gridsearch.fit(X_train=X_train_raw_df, y_train=y_train_tran_df.flatten())
     # get iteration of feature weights and cv_results
     all_rf_weights, cv_results = oob_gridsearch.extract_oob_result(oob_gridsearch.output_array, 
@@ -379,50 +374,23 @@ if __name__ == '__main__':
     
     
     logger.info("Run Random Intersection Tree ...")
+    # Create a Manager object to create a shared dictionary
+    manager = Manager()
+    all_rit_bootstrap_output = manager.dict()
+    # Create a multiprocessing pool
+    pool = Pool(processes=5)
     # Convert the bootstrap resampling proportion to the number
     # of rows to resample from the training data
-    n_samples = ceil(rit_params['propn_n_samples']* X_train_raw_df.shape[0])
-    # Loop through number of bootstrap sample
-    all_rit_bootstrap_output = {}
-    for b in range(rit_params['n_bootstrapped']):
-        
-        logger.info("Number of bootstrapp {}".format(b))
+    n_samples = ceil(rit_params['propn_n_samples'] * X_train_raw_df.shape[0])
+    # Run the loop in parallel
+    pool.starmap(run_rit, 
+                 [(b, n_samples, X_train_raw_df, y_train_tran_df.flatten(), all_rf_weights, X_test_raw_df, y_test_tran_df.flatten(), rit_params, train_model) 
+                 for b in range(rit_params['n_bootstrapped'])]
+    )
+    # Close the pool to free resources
+    pool.close()
+    pool.join()
 
-        X_train_rsmpl, y_rsmpl = resample(X_train_raw_df,
-                                          y_train_tran_df.flatten(), 
-                                          n_samples=n_samples)
-        
-        rf_bootstrap = deepcopy(train_model)
-
-        # Set up the weighted random forest
-        # Using the weight from the (K-1)th iteration
-        rf_bootstrap.fit(
-            X_train=X_train_rsmpl,
-            Y_train=y_rsmpl,
-            feature_weight=all_rf_weights[0]
-        )
-
-        # All RF tree data
-        all_rf_tree_data = RF_DataModel().get_rf_tree_data(
-            rf=rf_bootstrap.model,
-            X_train=X_train_rsmpl,
-            X_test=X_test_raw_df,
-            y_test=y_test_tran_df.flatten()
-        )
-
-        # Run RIT on the interaction rule set
-        all_rit_tree_data = RIT_DataModel().get_rit_tree_data(
-            all_rf_tree_data=all_rf_tree_data,
-            bin_class_type=y_test_tran_df.flatten(),
-            M=rit_params['n_intersection_tree'],  # number of RIT 
-            max_depth=rit_params['max_depth'],  # Tree depth for RIT
-            noisy_split=False,
-            num_splits=rit_params['num_splits'] # number of children to add
-        )
-
-        # Updata the rf bootstap output dictionary for rit object
-        all_rit_bootstrap_output['rf_bootstrap{}'.format(b)] = all_rit_tree_data
-    
     
     logger.info("Compute stability score for each interaction term ...")
     feature_name = pred_df.columns.to_list()
@@ -431,7 +399,7 @@ if __name__ == '__main__':
     stability_score = RIT_DataModel().get_stability_score(all_rit_bootstrap_output=all_rit_bootstrap_output,
                                                           column_name=feature_dict)
     
-    # output oob_error_score result
+    # output stability score result
     stability_score_df = pd.DataFrame(stability_score.items(), columns=["Pattern", "Value"])
     stability_score_df.to_csv(interaction_filename, sep="\t", index=False)
     
