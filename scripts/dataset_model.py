@@ -3,12 +3,6 @@ from  pathlib import Path
 
 import numpy as np
 import pandas as pd
-import gzip
-import pickle
-
-
-
-#repo_root = Path(__file__).resolve().parent.parent
 
 class ExpressionDataset(ABC):
     """ 
@@ -118,14 +112,15 @@ class GTEX_raw_Dataset(ExpressionDataset, GroupShuffleSplitMixin, Repeated_Group
     The GTEX_raw_Dataset inheritance pattern from class ExpressionDataset, GroupShuffleMixin and Repeated_GroupKFoldShuffleMixin
     """
 
-    def __init__(self, gwas_gen_dir, cov_df_dir):
+    def __init__(self, gwas_gen_dir, env_df_dir, cov_df_dir):
         """
         An initializer for the class
         """
         self.all_gen_df = pd.read_csv(gwas_gen_dir, sep=",")
         self.all_gen_df = self.all_gen_df.drop(['FID', 'IID'], axis=1)
         self.cov_df = pd.read_csv(cov_df_dir, sep="\t")
-        self.all_gwas_df = pd.concat([self.all_gen_df, self.env_df, self.cov_df], axis=1)
+        self.env_df = pd.read_csv(env_df_dir, sep="\t")
+        self.all_gwas_df = pd.concat([self.env_df, self.cov_df, self.all_gen_df], axis=1)
     
 
     @classmethod
@@ -138,7 +133,7 @@ class GTEX_raw_Dataset(ExpressionDataset, GroupShuffleSplitMixin, Repeated_Group
         gwas_df_dir = data_dir / weight_tissue / (weight_tissue + "_imputed.txt")
         gene_cor_dir = data_dir / "genetic_correlation.pkl.gz"
         
-        return cls(gwas_df_dir, config_file['dataset']['cov_dir'])
+        return cls(gwas_df_dir, config_file['dataset']['env_dir'], config_file['dataset']['cov_dir'])
 
     @staticmethod
     def save(save_df, save_file_name):
