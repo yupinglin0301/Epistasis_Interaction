@@ -83,7 +83,7 @@ To reproduce the results of the  analysis perform the following:
 ### 2024.05.06
    - Conduct permuation test to assign p-value for each interaction term
      + 1000 round
-     + Using interaction term Result in [2024-04-16T15:47:28.802255_Brain_Amygdala_CWR_Total_interaction_run_IRF_result.csv](results/Brain_Amygdala/2024-04-16T15:47:28.802255_Brain_Amygdala_CWR_Total_interaction_run_IRF_result.csv)
+     + Using interaction term in [2024-04-16T15:47:28.802255_Brain_Amygdala_CWR_Total_interaction_run_IRF_result.csv](results/Brain_Amygdala/2024-04-16T15:47:28.802255_Brain_Amygdala_CWR_Total_interaction_run_IRF_result.csv)
      +   checking Log file in [logfile_2024-04-25T18:21:20.319339_Brain_AmygdalaCWR_TotalPermutation_Test.log]( logfile_2024-04-25T18:21:20.319339_Brain_AmygdalaCWR_TotalPermutation_Test.log)
    - Compute heritability using predicted gene expression [03_Compute_heritability](../03_Compute_heritability/READ.md) 
 ### Future plan
@@ -99,4 +99,51 @@ To reproduce the results of the  analysis perform the following:
          - age, sex, Age * Sex, Age2
        - Phenotype
          - Fluid Intelligence score from UK Biobank [Data-Field 20016](https://biobank.ctsu.ox.ac.uk/crystal/field.cgi?id=20016)
+
+
+
+### 2024.05.20
+Workflow Overview
+
+
+1. Input a numeric feature matrix x (`Agyer`, `Gender`, `Income`, `Total_Education`, `Gene_expression`)and a response vector y (`CWR_Total`)
+
+2. Iteratively train n.iter random forests
+   - Populate the weight vector rep(1, ncol(x)), which indicating the probabilty each feature would be chosen when training the random forests.
+   - Train a random forest with x and y, and save it for later use.
+   - Update select.prob with the Gini importance of each feature, so that the more prediction accuracy a certain feature provides, the more likely it will be selected in the next iteration.
+   - Repeat this routine n.iter times.
+   -  n_estimators: [500] max_features: [700] max_depth: [2] 
   
+3. Run Random Intersection Tree 
+    - We apply the generalized RIT to the last feature-weighted RF grown in iteration K. 
+    - decision rules generated in the process of fitting RF(W(K)) provide the mapping from continuous or categorical to binary features required for the RIT.
+    -  n_bootstrapped: [1000] propn_n_samples: [0.5] n_intersection_tree: [500] max_depth_rit: [5] num_splits: [2]
+
+4. Calculate stability score for the interactions
+
+
+
+5.  We consider a parametric model, assuming additive effects, for both SNP-SNP and SNP-environment interaction effects for linear regression, and construct a hypothesis test to infer the presence of interactions. For the test of SNP-SNP interactions between two SNPs a and b, the null model will be:
+
+$\begin{aligned}  \mathbf{x }_{i,c}^{T}\gamma + \alpha g_{i,a} + \beta g_{i,b}, \end{aligned}
+$
+
+The corresponding alternative model incorporating an additive interaction effect will be (`SNP-SNP interaction`):
+
+
+$\begin{aligned}  \mathbf{x }_{i,c}^{T}\gamma + \alpha g_{i,a} + \beta g_{i,b} + \nu g_{i,a} g_{i,b}. \end{aligned}$
+
+The corresponding SNP-SBPOalternative model incorporating an additive interaction effect will be(`SNP-Env interaction`):
+
+$\begin{aligned}  \mathbf{x }_{i,c}^{T}\gamma + \alpha g_{i,a} + \beta _e x_{i,e} + \phi g_{i,a} x_{i,e}, \end{aligned}
+$
+
+- For the testing of the interactions we apply the linear F-statistic to test the null hypothesis that 
+   - Null hypothesis: for SNP-SNP interactions $\begin{aligned}  \nu \end{aligned}$ or for SNP–environment interactions  $\begin{aligned}   \phi \end{aligned}$ is 0
+   - Alternate  hypothesis: $\begin{aligned}  \nu \end{aligned}$ or  $\begin{aligned}   \phi \end{aligned}$ is greater than 0
+
+
+$F^*=\left(\frac{S S E(R)-S S E(F)}{d f_R-d f_F}\right) \div\left(\frac{S S E(F)}{d f_F}\right)$
+
+6. For detail [F-test_interaction.ipynb](F-test_interaction.ipynb) and [run_IRF.py](run_IRF.py)
