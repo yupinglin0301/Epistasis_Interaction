@@ -93,25 +93,4 @@ def construct_filename(output_dir,
                                         '_'.join(f'{k}{v}' for k, v in kwargs.items()
                                                                if v is not None), 
                                         file_descriptor, 
-                                        extension))
-
-
-def write_configure_options(arguments,
-                            output_dir,
-                            file_descriptor):
-    """
-    Save model hyperparameters/metadata to output directory.
-    """
-
-    output_file = construct_filename(output_dir,
-                                     file_descriptor,
-                                     extension=".txt")
-
-    if check_exist_files([output_file]):
-        raise Exception("'Results file ", str(output_file), " exist alreadly.")
-    else:
-        with open(output_file, 'w') as f:
-            f.write('+++++++++++ CONFIG INFORMATION +++++++++++')
-            f.write('Summary Statistics:\n')
-            f.write('## Weight databse:\t' + str(arguments['weights_mdoel']) +'\n')
-            f.write('+++++++++++ CONFIG INFORMATION +++++++++++')          
+                                        extension))      
