@@ -1,6 +1,6 @@
 from sklearn.pipeline import make_pipeline
 from pathlib import Path
-import preprocessors as pp
+import preprocessing_utils as pp
 import argparse
 import utils
 import dataset_model as dm
@@ -32,6 +32,7 @@ def extract(data_set):
     
     return df
 
+# Transform
 def transform_data(df):
     """
     Perform data transformation using a pipeline of preprocessing steps.
