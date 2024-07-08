@@ -4,7 +4,7 @@ import pandas as pd
 import utils
 import sys
 import yaml
-import preprocessors as pp
+import preprocessing_utils as pp
 import sqlite3
 import pickle
 import gzip
@@ -21,7 +21,9 @@ Functions for remove out genetic relationship structure
 Usage:
     
     nohup python etl_for_phenotype.py \
-      --phen_name CWR_Total  >  /exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/Log/nohup.txt &
+      --phen_name "CWR_Total" \
+      --gene_cor_name "genetic_correlation.pkl.gz"
+      >  /exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/Log/nohup.txt &
       
 Output:
 residual phenotype
@@ -63,7 +65,7 @@ def compute_expected_value(y, grm):
 # Extraction
 def extract(phen_file, columns):
     # Read the data file and extract specified columns
-    df = pd.read_csv(phen_file, usecols=columns, sep="\t")
+    df = pd.read_csv(phen_file, usecols=[columns], sep="\t")
     return df
 
 # Transform
@@ -107,8 +109,12 @@ def process_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--phen_name',
-        action="store",
-        nargs='+',       
+        action="store", 
+        help="Data directory where the phenotype and genotype matrix are stored."
+    )
+    parser.add_argument(
+        '--gene_cor_name',
+        action="store", 
         help="Data directory where the phenotype and genotype matrix are stored."
     )
     
@@ -122,18 +128,14 @@ if __name__ == '__main__':
     # process command line arguments
     input_arguments = process_args()
     timestamp = datetime.datetime.now().today().isoformat()
-    # set up logging
-    logger = utils.logging_config("etl_for_phenotype", timestamp)
     # set up repo_directory
     repo_root = Path(__file__).resolve().parent.parent
     # set up working directory
     work_dir = repo_root / str("01_Preprocessing")
     # set up result directory
     save_dir = work_dir.joinpath("results")
-    
-    
-    
-    logger.info("Check if all files and directories exist ... ")
+    # set up logging
+    logger = utils.logging_config(work_dir, f"etl_for_phenotype:{input_arguments.phen_name}", timestamp)
     # loading configure file
     configure_file = work_dir.joinpath("config.yaml")
     try:
@@ -143,6 +145,7 @@ if __name__ == '__main__':
             sys.stderr.write("Please specify valid yaml file.")
             sys.exit(1)
     
+    logger.info("Check if all files and directories exist ... ")
     if not utils.check_exist_directories(save_dir):
         raise Exception("The directory" + str(save_dir) + "not exist. Please double-check.")
     else:
@@ -152,17 +155,16 @@ if __name__ == '__main__':
         if utils.check_exist_files(output_filename):
             raise Exception("Results files exist already. Please double-check.")
     
-    data_dir = Path(load_configure['dataset']['data_dir'])
-    gene_cor_dir = data_dir / "genetic_correlation.pkl.gz"
+    logger.info("Conduct ETL pipeline for format {}...".format(input_arguments.phen_name))
     
+    data_dir = Path(load_configure['dataset']['data_dir'])
+    gene_cor_dir = data_dir / input_arguments.gene_cor_name
     with gzip.open(gene_cor_dir, 'rb') as f:
         gene_cor_matrix = pickle.load(f)  
     
-     
-    logger.info("Conduct ETL pipeline for format {}...".format(input_arguments.phen_name))
     load_data(db_name=output_filename, 
               file=load_configure['dataset']['phentoype_dir'], 
               grm=gene_cor_matrix, 
               columns=input_arguments.phen_name)
     
-    logger.info("Save predictor feature to {}".format(output_filename))  
+    logger.info("Save predictor feature to {}".format(output_filename))
