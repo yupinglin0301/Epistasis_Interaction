@@ -3,7 +3,6 @@ from pathlib import Path
 import preprocessing_utils as pp
 import argparse
 import utils
-import dataset_model as dm
 import yaml
 import sys
 import datetime
@@ -119,7 +118,7 @@ if __name__ == '__main__':
             raise Exception("Results files exist already. Please double-check.")
         
     logger.info("Conduct ETL pipeline ...")
-    GTEX_Dataset = dm.GTEX_raw_Dataset.from_config(config_file=load_configure, 
+    GTEX_Dataset = pp.GTEX_raw_Dataset.from_config(config_file=load_configure, 
                                                    weight_tissue=input_arguments.weight_tissue)
     
     load_data(dataset=GTEX_Dataset, output_filename=output_filename)
