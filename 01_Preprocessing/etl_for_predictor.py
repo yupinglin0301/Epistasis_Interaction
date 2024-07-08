@@ -41,7 +41,7 @@ def transform_data(df):
     :return Transformed DataFrame.
     """
     pipeline = make_pipeline(
-            pp.NormalizeDataTransformer(column_names=df.columns.tolist()[5:]),
+            pp.NormalizeDataTransformer(column_names=df.columns.tolist()[4:]),
             pp.CategorialEncoder_Education(variables=['FatherEducation', 'MotherEducation']),
             pp.CategorialEncoder_Income(variables=['Income'])   
     )
@@ -71,11 +71,6 @@ def process_args():
     """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--work_dir',
-        action="store",
-        help="The yaml formatted dataset configuration file."
-    )
 
     parser.add_argument(
         '--weight_tissue',
@@ -90,17 +85,15 @@ if __name__ == '__main__':
     
     # process command line arguments
     input_arguments = process_args()
-    # set up logging
     timestamp = datetime.datetime.now().today().isoformat()
-    logger = utils.logging_config(input_arguments.weight_tissue + "etl_for_predictor", timestamp)
-
     # set up repo_directory
     repo_root = Path(__file__).resolve().parent.parent
     # set up working directory
     work_dir = repo_root / str("01_Preprocessing")
     # set up result directory
     save_dir = work_dir.joinpath("results")
-    
+    # set up logging
+    logger = utils.logging_config(work_dir, f"etl_for_predictor:{input_arguments.weight_tissue}", timestamp)
     #loading configure file
     configure_file = work_dir.joinpath("config.yaml")
     try:
