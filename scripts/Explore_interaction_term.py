@@ -200,54 +200,6 @@ def run_RIT(rf_bootstrap,
     return all_rit_tree_data
 
 
-def get_rss(y_np, fixedEff_np):
-    """
-    compute residual sum of squares of H0: marker has no effect on phenotype
-    
-    :param y: phenotype vector
-    :param fixedEff: vector or matrix of fixed effects
-    
-    :return: residual sum of squares
-    """
-    
-    # Compute the transpose of fixedEff
-    fixedT = fixedEff_np.T   
-    # Compute beta, the coefficients for the fixed effects
-    beta = np.linalg.lstsq(fixedT @ fixedEff_np, fixedT @ y_np, rcond=None)[0]
-    # Compute the difference between the actual y and the predicted values
-    dif = y_np - fixedEff_np @ beta
-    # Compute the residual sum of squares
-    rss = dif.T @ dif
-    
-    return rss
-
-
-def get_f_score(rss0, rss1, n, freedom_deg):
-    """
-    compute test statistics in batches
-    
-    :param rss0: residual sum of squares of H0: marker has no effect on phenotype
-    :param rss1: residual sum of squares of H1: marker has effect on phenotype
-    :param n: number of samples
-    :param freedom_deg: degrees of freedom
-    
-    :return: F1 score
-    """
-    return (n-freedom_deg)*(rss0-rss1)/rss1
-
-def get_p_value(f1, n: int, freedom_deg: int):
-    """
-    compute p-value using survival function of f distribution
-    
-    :param f1: F1 score
-    :param n: number of samples
-    :param freedom_deg: degrees of freedom
-    
-    :return: p-value
-    """
-    return stats.f.sf(f1, 1, n-freedom_deg)
-
-
 def FeatureEncoder(np_genotype_rsid, np_genotype, int_dim):
     """
     Implementation of the two-element combinatorial encoding.
