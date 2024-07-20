@@ -31,68 +31,14 @@ def get_dataset(feature_data, phen_data, data_split_indexes, label):
     return data, phenotype
 
 
-def write_configure_run_IRF(logger, 
-                            configure_file, 
-                            interaction_pvalue_rst_file, 
-                            interaction_rst_file,
-                            phen_file,
-                            predictor_file):
+def write_configure(logger, configure_file):
     """
     Save model hyperparameters/metadata to output directory.
     """
 
-   
     logger.info('+++++++++++ File INFORMATION +++++++++++')
     logger.info("Parameter file dir: {}".format(configure_file))
-    logger.info("Interaction pvalue result dir: {}".format(interaction_pvalue_rst_file))
-    logger.info("Interaction result dir: {}".format(interaction_rst_file))
-    logger.info("Phenotype file dir: {}".format(phen_file))
-    logger.info("Predictor file dir: {}".format(predictor_file))
 
-
-def write_configure_permutation(logger, 
-                                configure_file, 
-                                interaction_rst_file,
-                                phen_file,
-                                predictor_file):
-    """
-    Save model hyperparameters/metadata to output directory.
-    """
-
-   
-    logger.info('+++++++++++ File INFORMATION +++++++++++')
-    logger.info("Parameter file dir: {}".format(configure_file))
-    logger.info("Interaction result dir: {}".format(interaction_rst_file))
-    logger.info("Phenotype file dir: {}".format(phen_file))
-    logger.info("Predictor file dir: {}".format(predictor_file))
-            
-
-def group_shuffle_split(X, y, groups, seed, n_splits=1 , test_size=0.2):
-    """
-    Split the data into train and test sets
-    """
-        
-    from sklearn.model_selection import GroupShuffleSplit
-    gss = GroupShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=seed)  
-    split = gss.split(X, y, groups=groups)
-    train_ids, test_ids = next(split)
-    
-    
-        
-    X_train, X_test = X[train_ids], X[test_ids]
-    y_train, y_test = y[train_ids], y[test_ids]
-        
-    return X_train, X_test, y_train, y_test, train_ids, test_ids
-
-def get_rit_counts(b, all_rit_bootstrap_output, column_name):
-    """
-    Get each bootstrapping  interaction term
-    """  
-    from RF_dataset_model import RF_DataModel, RIT_DataModel 
-    rit_counts = RIT_DataModel().rit_interactions(all_rit_bootstrap_output['rf_bootstrap{}'.format(b)], column_name)
-    
-    
-    return list(rit_counts)
 
 def rit_interactions(tree_data, column_name):
     """
@@ -107,7 +53,7 @@ def rit_interactions(tree_data, column_name):
             return intersection_str
 
 
-class OOB_Search(object):
+class iterativeRF(object):
     def __init__(self, 
                  estimator, 
                  param_grid,
@@ -168,9 +114,9 @@ class OOB_Search(object):
         all_rf_weights = {}
         initial_weights = None
         # Loop through number of iteration
-        for k in range(int(parameters['K'])):
+        for k in range(1, int(parameters['K'])):
            
-            if k == 0:
+            if k == 1:
                 # Initially feature weights are None
                 feature_importances = initial_weights
 
@@ -209,43 +155,7 @@ class OOB_Search(object):
         oob_error = 1 - estimator.model.oob_score_
         return oob_error, all_rf_weights
 
-    @staticmethod
-    def extract_oob_result(output_array, params_iterable):
-        """
-        Extracts the out-of-bag (OOB) results from an output array and a params iterable.
-        
-        :param output_array (list): List of output values.
-        :param params_iterable (list): List of parameter values.
-
-        :return  A tuple containing the list of RF weights and a DataFrame with OOB error scores and parameters.
-        """
-        # Extract OOB error scores from output array
-        oob_error_score = [i[0] for i in output_array]
-
-        # Find the index of the best OOB error score
-        best_index = np.argmin(oob_error_score)
-        best_param_ = params_iterable[best_index]
-
-        # Create a DataFrame with OOB error scores and parameters
-        cv_results = pd.DataFrame(oob_error_score, columns=['OOB_Error_Score'])
-        df_params = pd.DataFrame(params_iterable)
-        cv_results = pd.concat([cv_results, df_params], axis=1)
-        cv_results["params"] = params_iterable
-        cv_results = (cv_results.
-                      sort_values(['OOB_Error_Score'], ascending=True).
-                      reset_index(drop=True))
-        
-        if len(oob_error_score) ==1:
-            # Extract RF weights for the best parameter value when only have one parameter
-            all_rf_weights = [j[1]["rf_weight{}".format(best_param_['K'])] for i, j in enumerate(output_array)]
-        else:
-            # Extract RF weights for the best parameter value
-            all_rf_weights = [j[1]["rf_weight{}".format(best_param_['K'])] for i, j in enumerate(output_array) if(i+1)==best_param_['K']]
-
-        return all_rf_weights, cv_results
-
-
-
+    
 def run_RIT(rf_bootstrap,
             X_train,
             y_train,
