@@ -212,7 +212,7 @@ class hiPRS(GWAS_Model):
         :return: The fitted model 
         """
 
-        self.model = LinearRegression()
+        self.model = linear_model.LinearRegression()
         self.model = self.model.fit(X_train, Y_train)
         return self
 
@@ -246,77 +246,3 @@ class hiPRS(GWAS_Model):
 
         with open(model_path, "rb") as model_file:
             return pickle.load(model_file)
-        
-        
-class PenalizedPRS(GWAS_Model):
-    """
-    A penalized Linear Regression implementation designed to hew closely to the skl defaults
-    """
-    
-    def __init__(self, rseed, **model_kwargs):
-        """
-        Model initialization function
-        
-        :param seed: The random seed to use in training
-        :param model_kwargs: kwargs arguments to pass to iterative random forest classifier
-        :return: None
-        """
-
-        self.rseed = rseed
-        self.model_kwargs = model_kwargs
-        self.model = None
-
-    def fit(self, X_train, Y_train, penalty):
-        """
-        Create and fit the iterative random forest regression
-        
-        :param X_train: training data
-        :param Y_train: training label
-        :param feature_weight: weights for each feature
-        :return: The fitted model 
-        """
-        
-        if(penalty == 'l1'):
-            self.model = linear_model.Lasso(random_state=self.rseed, **self.model_kwarg)
-        elif(penalty == 'elasticnet'):
-            self.modle = linear_model.ElasticNet(random_state=self.rseed, **self.model_kwarg)
-        elif(penalty == 'l2'):
-            self.model = linear_model.Ridge(random_state=self.rseed, **self.model_kwarg)
-        else:
-            raise RuntimeError("Unrecognized penalty type.")
-        
-        self.model = self.model.fit(X_train, Y_train)
-        
-        return self
-
-    def save_model(self, out_path):
-        """
-        Write the regressor to a file
-        
-        :param out_path: The path to the file to write the classifier to
-        :return: None
-        """
-
-        with open(out_path, "wb") as out_file:
-            pickle.dump(self, out_file)
-    
-    def predict(self, X_train):
-        """
-        Predict target value based on X_train
-        """
-        
-        assert self.model is not None, "Need to fit model first"
-        return self.model.predict(X_train)
-        
-    @staticmethod
-    def load_model(model_path):
-        """
-        Read a pickled model from a file and return it
-        
-        :param model_path The location where the model is 
-        :return: The model saved at `model_path`
-        """
-
-        with open(model_path, "rb") as model_file:
-            return pickle.load(model_file)
-        
