@@ -4,7 +4,6 @@ import numpy as np
 from functools import partial
 from sklearn.tree import _tree
 from scipy import stats
-import statistics
 
 
 
@@ -82,7 +81,7 @@ class RF_DataModel(object):
         return paths
 
 
-    def get_rf_tree_data(self, rf, X_train, X_test, y_test):
+    def get_rf_tree_data(self, rf, X_train, X_test, y_test, predictor="regress"):
         """
         Get the entire fitted random forest and its decision tree data
         as a convenient dictionary format
@@ -115,7 +114,8 @@ class RF_DataModel(object):
                 X_test=X_test,
                 y_test=y_test,
                 dtree=dtree,
-                node_id=0
+                node_id=0,
+                predictor=predictor
             )
 
             # Append output to our combined random forest outputs dict
@@ -123,7 +123,7 @@ class RF_DataModel(object):
 
         return all_rf_tree_outputs
 
-    def get_tree_data(self, X_train, X_test, y_test, dtree, node_id=0):
+    def get_tree_data(self, X_train, X_test, y_test, dtree, predictor, node_id=0):
 
         """
         This returns all of the required summary results from an
@@ -184,14 +184,18 @@ class RF_DataModel(object):
                                 for node_id in all_leaf_nodes]
 
         # Get all feature index
-        #all_features_idx = np.array(range(tot_num_features), dtype='int64')
+        all_features_idx = np.array(range(tot_num_features), dtype='int64')
         
-        # Predicted Classes
-        all_leaf_node_classes = [
-            np.unique(y_test)[np.argmax(value)] 
-            for value in all_leaf_node_values
-        ]
-        
+        if predictor == "regress":
+            # Predicted Classes
+            all_leaf_node_classes = [
+                np.unique(y_test)[np.argmax(value)] 
+                for value in all_leaf_node_values
+            ]
+        else:
+            all_leaf_node_classes = [all_features_idx[np.argmax(value)] for value in all_leaf_node_values]
+            
+
         # Dictionary of all tree values
         tree_data = {
             "node_features_idx": node_features_idx,
@@ -260,27 +264,38 @@ class RIT_DataModel(object):
                                  bin_class_type):
         
         # following https://github.com/sumbose/iRF/blob/master/R/gRIT.R to convert leaf nodes in regression to binary classes.
+        
 
         # Filter based on the specific value of the leaf node classes
-        leaf_node_classes = dtree_data['all_leaf_node_values']
+        leaf_node_classes = dtree_data['all_leaf_node_classes']
+        
+        
+        # perform the filtering and return list
+        if bin_class_type is not None:      
 
-       # unique feature paths from root to leaf node
-        unique_feature_paths = [
-                i for i, j in zip(dtree_data['all_uniq_leaf_paths_features'],
-                              leaf_node_classes) if j > statistics.median(bin_class_type)
-        ]
+            # unique feature paths from root to leaf node
+            unique_feature_paths = [
+                    i for i, j in zip(dtree_data['all_uniq_leaf_paths_features'],
+                                  leaf_node_classes) if j == bin_class_type
+            ]
 
-        # total number of training samples ending up at each node
-        tot_leaf_node_values = [
+            # total number of training samples ending up at each node
+            tot_leaf_node_values = [
                 i for i, j in zip(dtree_data['tot_leaf_node_values'],
-                              leaf_node_classes) if j > statistics.median(bin_class_type)
-        ]
+                              leaf_node_classes) if j == bin_class_type
+            ]
             
-        all_filtered_output = {
-            "Unique_feature_paths": unique_feature_paths,
-            "tot_leaf_node_values": tot_leaf_node_values
-        }
-
+            all_filtered_output = {
+                "Unique_feature_paths": unique_feature_paths,
+                "tot_leaf_node_values": tot_leaf_node_values
+            }
+        
+        else:
+            all_filtered_output = {
+                "Unique_feature_paths": list(dtree_data['all_uniq_leaf_paths_features']),
+                "tot_leaf_node_values": list(dtree_data['tot_leaf_node_values'])
+            }
+        
         return all_filtered_output
 
     def generate_rit_samples(self,
