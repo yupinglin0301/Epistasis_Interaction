@@ -1,9 +1,5 @@
-from pathlib import Path
 from sklearn.model_selection import ParameterGrid
 from copy import deepcopy
-from RF_dataset_model import RF_DataModel, RIT_DataModel
-from sklearn.utils import resample
-
 
 import numpy as np 
 import joblib
@@ -15,188 +11,20 @@ utilities for 02_Explore_interaction_term
 """
 
 
-def get_dataset(feature_data, phen_data, data_split_indexes, label):
-    """
-    Retrieve a subset of the dataset based on specified label for data splitting.
-    """
-    
-    indexes = data_split_indexes.loc[data_split_indexes["label"] == label]
-    indexes = indexes["labeled_data_index"]
-    
-    data = feature_data.loc[indexes]
-    phenotype = phen_data.loc[indexes]
-    
-    return data, phenotype
-
-
 def write_configure(logger, configure_file):
     """
-    Save model hyperparameters/metadata to output directory.
+    This function logs the directory of the configuration file and saves the model hyperparameters/metadata 
+    to the output directory specified by the configure_file parameter.
+
+    :param logger: Logger object for logging information.
+    :param configure_file: Path to the configuration file containing model hyperparameters/metadata.
     """
 
     logger.info('+++++++++++ File INFORMATION +++++++++++')
     logger.info("Parameter file dir: {}".format(configure_file))
 
 
-def rit_interactions(tree_data, column_name):
-    """
-    Get interaction term for each bootstrapping
-    """
-    intersected_values = tree_data['rit_intersected_values']
-    # loop through all found interactions
-    for value_list in intersected_values:
-        values = [key for key, value in column_name.items() if value in value_list]
-        if len(values) > 1:
-            intersection_str = "_".join(map(str, values))
-            return intersection_str
-
-
-class iterativeRF(object):
-    def __init__(self, 
-                 estimator, 
-                 param_grid,
-                 n_jobs=-1):
-        """
-        Initializes the OOB_Search class.
-
-       
-        :param estimator (object): The base estimator to be used.
-        :param param_grid (dict or list of dicts): The parameter grid to search over.
-        :param n_jobs (int, optional): The number of jobs to run in parallel. Defaults to -1.
-        """
-        self.n_jobs = n_jobs
-        self.estimator = estimator
-        self.param_grid = param_grid
-
-    def fit(self, 
-            X_train, 
-            y_train):
-        """
-        Fits the model with the given training data using the parameter grid search.
-
-        :param X_train (array-like): The input features for training.
-        :param y_train (array-like): The target values for training.
-
-        :return self (object): Returns self.
-        """
-        self.params_iterable = list(ParameterGrid(self.param_grid))
-        parallel = joblib.Parallel(self.n_jobs)
-
-        output = parallel(
-            joblib.delayed(self.fit_and_score)(deepcopy(self.estimator), X_train, y_train, parameters)
-            for parameters in self.params_iterable)
-
-        self.output_array = np.array(output)
-        
-
-        return self
-
-    def fit_and_score(self, 
-                      estimator, 
-                      X_train, 
-                      y_train,
-                      parameters):
-        """
-        Fits the model and calculates the out-of-bag (OOB) error score.
-
-        :param estimator (object): The estimator object.
-        :param X_train (array-like): The input features for training.
-        :param y_train (array-like): The target values for training.
-        :param parameters (dict): The hyperparameters to use for fitting the model.
-
-        :return oob_error (float): The calculated out-of-bag error score.
-        """
-        
-        
-        # Initialize dictionary of rf weights
-        all_rf_weights = {}
-        initial_weights = None
-        # Loop through number of iteration
-        for k in range(1, int(parameters['K'])):
-           
-            if k == 1:
-                # Initially feature weights are None
-                feature_importances = initial_weights
-
-                # Update the dictionary of all our RF weights
-                all_rf_weights["rf_weight{}".format(k)] = feature_importances
-
-                # fit the model
-                estimator.fit(X_train=X_train,
-                              Y_train=y_train,
-                              feature_weight=None)
-
-                # Update feature weights using the
-                # new feature importance score
-                feature_importances = getattr(estimator,"model").feature_importances_
-
-                # Load the weights for the next iteration
-                all_rf_weights["rf_weight{}".format(k + 1)] = feature_importances
-
-            else:
-
-                # fit weighted RF
-                # Use the weights from the previous iteration
-                estimator.fit(
-                    X_train=X_train,
-                    Y_train=y_train,
-                    feature_weight=all_rf_weights["rf_weight{}".format(k)])
-
-                # Update feature weights using the
-                # new feature importance score
-                feature_importances = getattr(estimator, "model").feature_importances_
-
-                # Load the weights for the next iteration
-                all_rf_weights["rf_weight{}".format(k + 1)] = feature_importances
-        
-     
-        oob_error = 1 - estimator.model.oob_score_
-        return oob_error, all_rf_weights
-
     
-def run_RIT(rf_bootstrap,
-            X_train,
-            y_train,
-            X_test,
-            y_test,
-            n_samples,
-            all_rf_weights,
-            **parameters):
-    
-  
-    
-    X_train_rsmpl, y_rsmpl = resample(X_train, 
-                                      y_train, 
-                                      n_samples=n_samples)
-    
-    # Set up the weighted random forest
-    # Using the weight from the (K-1)th iteration
-    rf_bootstrap.fit(
-            X_train=X_train_rsmpl,
-            Y_train=y_rsmpl,
-            feature_weight=all_rf_weights
-    )  
-    
-    # All RF tree data
-    all_rf_tree_data = RF_DataModel().get_rf_tree_data(
-            rf=rf_bootstrap.model,
-            X_train=X_train_rsmpl,
-            X_test=X_test,
-            y_test=y_test
-    )
-
-    # Run RIT on the interaction rule set
-    all_rit_tree_data = RIT_DataModel().get_rit_tree_data(
-            all_rf_tree_data=all_rf_tree_data,
-            bin_class_type=y_test,
-            M=parameters['n_intersection_tree'],  # number of RIT 
-            max_depth=parameters['max_depth'], # Tree depth for RIT
-            noisy_split=False,
-            num_splits=parameters['num_splits']  # number of children to add
-    ) 
- 
-    return all_rit_tree_data
-
 
 def FeatureEncoder(np_genotype_rsid, np_genotype, int_dim):
     """
@@ -234,3 +62,54 @@ def FeatureEncoder(np_genotype_rsid, np_genotype, int_dim):
     list_interaction_rsid.extend(list(np_this_interaction_id))
         
     return list_interaction_rsid, np_interaction 
+
+
+def filter_leaves_classifier(dtree_data,
+                             bin_class_type):
+        
+        # following https://github.com/sumbose/iRF/blob/master/R/gRIT.R to convert leaf nodes in regression to binary classes.
+        
+
+        # Filter based on the specific value of the leaf node classes
+        leaf_node_classes = dtree_data['all_leaf_node_classes']
+        # perform the filtering and return list
+        if bin_class_type is not None:      
+
+            # unique feature paths from root to leaf node
+            unique_feature_paths = [
+                    i for i, j in zip(dtree_data['all_uniq_leaf_paths_features'],
+                                  leaf_node_classes) if j == bin_class_type
+            ]
+
+            # total number of training samples ending up at each node
+            tot_leaf_node_values = [
+                i for i, j in zip(dtree_data['tot_leaf_node_values'],
+                              leaf_node_classes) if j == bin_class_type
+            ]
+            
+            all_filtered_output = {
+                "Unique_feature_paths": unique_feature_paths,
+                "tot_leaf_node_values": tot_leaf_node_values
+            }
+        
+        else:
+            all_filtered_output = {
+                "Unique_feature_paths": list(dtree_data['all_uniq_leaf_paths_features']),
+                "tot_leaf_node_values": list(dtree_data['tot_leaf_node_values'])
+            }
+        
+        return all_filtered_output
+
+
+def generate_all_samples(all_rf_tree_data, 
+                         bin_class_type=1):
+    
+    n_estimators = all_rf_tree_data['rf_obj'].n_estimators
+
+    all_paths = []
+    for dtree in range(n_estimators):
+        filtered = filter_leaves_classifier(
+            dtree_data=all_rf_tree_data['dtree{}'.format(dtree)],
+            bin_class_type=bin_class_type)
+        all_paths.extend(filtered['Unique_feature_paths'])
+    return all_paths
