@@ -4,6 +4,8 @@ In this module, we aim to impute gene expression for different tissue using gtex
 - Create genetic relationship matrix. (Step 0)
 - Impute gene expression for different tissue using gtex version 7 for reference. (Step 1)
 
+  
+
 ## Scripts
 ### Step 0: Create genetic relationship matrix
 
@@ -23,7 +25,7 @@ Usage:
       --dosage_end_prefix 
 
 Output:
-genetic relationship matrix (GRM)
+genetic relationship matrix (GRM) e.g. genetic_correlation.pkl.gz
 ```
 
 ### Step 1: Impute gene expression for different tissue using gtex version 7 for reference
@@ -43,7 +45,7 @@ Usage:
       --dosage_end_prefix  
 
 Output:
-gene expression for specifice tissue
+gene expression for specifice tissue e.g. /exeh_4/yuping/Epistasis_Interaction/00_Generate_Data/results/Brain_Amygdala/Brain_Amygdala_imputed.txt
 ```
 
 #### **Gene set collections and data sets used**
@@ -66,23 +68,8 @@ gene expression for specifice tissue
 | gtexV7 | Brain_Cerebellum |        
 
 
-## Reproducible Analysis
-
-To reproduce the results of the coverage analysis perform the following:
-
-```
-
-```
 
 
-## Reference
-+  https://charlotte-ngs.github.io/GELASMFS2017/w4/2013_CW_GBLUP.pdf
-+  https://cnsgenomics.com/data/teaching/GNGWS22/module4/Practical3.pdf
-+  https://zjuwhw.github.io/2021/08/20/GRM.html
-+  https://www.nature.com/articles/ncomms8432
-
-
-  
 
   
 
