@@ -1,4 +1,0 @@
-predictor: 'regress'
-seed: 2018
-n_estimators: 2
-max_features: 10
