@@ -1,0 +1,10 @@
+default_seed: 42
+dataset:
+   data_dir: "/exeh_4/yuping/Epistasis_Interaction/01_Preprocessing/results"
+model_params:
+   n_estimators: [500]
+   max_features: [700]
+   max_depth: [2] 
+   oob_score: True
+   n_bootstrapped: [500]
+   propn_n_samples: [0.5]
